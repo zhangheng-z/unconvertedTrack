@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>未转化用户内容后台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">运营后台</p>
+          <h1>内容管理工作台</h1>
+        </div>
+        <button id="refreshButton">刷新</button>
+      </section>
+
+      <section class="metrics" id="metrics"></section>
+
+      <section class="grid">
+        <form class="panel form-panel" id="contentForm">
+          <h2>新增资料</h2>
+          <label>标题<input name="title" required placeholder="一年级识字阅读自测表" /></label>
+          <div class="two-cols">
+            <label>类型
+              <select name="content_type">
+                <option value="pdf">PDF</option>
+                <option value="image">图片</option>
+                <option value="video">视频</option>
+                <option value="assessment">测评</option>
+                <option value="camp">训练营</option>
+              </select>
+            </label>
+            <label>学科<input name="subject" placeholder="语文" /></label>
+          </div>
+          <div class="two-cols">
+            <label>问题<input name="problem" placeholder="识字阅读" /></label>
+            <label>年级<input name="grade" placeholder="一年级" /></label>
+          </div>
+          <div class="two-cols">
+            <label>最小年龄<input name="target_age_min" type="number" min="0" max="18" value="6" /></label>
+            <label>最大年龄<input name="target_age_max" type="number" min="0" max="18" value="8" /></label>
+          </div>
+          <label>简介<textarea name="summary" rows="3" placeholder="帮助家长快速判断孩子学习情况"></textarea></label>
+          <label>下一步动作<input name="next_action" placeholder="测评 / 训练营 / 领取方案" /></label>
+          <label>上传资料文件<input name="file" type="file" /></label>
+          <button class="primary" type="submit">创建并发布</button>
+        </form>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>内容列表</h2>
+            <span id="contentCount"></span>
+          </div>
+          <div class="content-list" id="contentList"></div>
+        </section>
+      </section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>
+

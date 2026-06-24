@@ -1,0 +1,27 @@
+<view class="filter-panel">
+  <view class="filter-row">
+    <text class="filter-label">学科</text>
+    <scroll-view scroll-x class="filter-scroll">
+      <view class="chip-row">
+        <text wx:for="{{subjects}}" wx:key="value" class="filter-chip {{value.subject === item.value ? 'active' : ''}}" data-key="subject" data-value="{{item.value}}" bindtap="selectFilter">{{item.label}}</text>
+      </view>
+    </scroll-view>
+  </view>
+  <view class="filter-row">
+    <text class="filter-label">类型</text>
+    <scroll-view scroll-x class="filter-scroll">
+      <view class="chip-row">
+        <text wx:for="{{types}}" wx:key="value" class="filter-chip {{value.content_type === item.value ? 'active' : ''}}" data-key="content_type" data-value="{{item.value}}" bindtap="selectFilter">{{item.label}}</text>
+      </view>
+    </scroll-view>
+  </view>
+  <view class="filter-row last">
+    <text class="filter-label">排序</text>
+    <scroll-view scroll-x class="filter-scroll">
+      <view class="chip-row">
+        <text wx:for="{{sorts}}" wx:key="value" class="filter-chip {{value.sort === item.value ? 'active' : ''}}" data-key="sort" data-value="{{item.value}}" bindtap="selectFilter">{{item.label}}</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>
+

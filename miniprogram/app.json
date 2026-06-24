@@ -1,0 +1,49 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/materials/materials",
+    "pages/assessment/assessment",
+    "pages/camp/camp",
+    "pages/my/my",
+    "pages/onboarding/onboarding",
+    "pages/content-detail/content-detail"
+  ],
+  "window": {
+    "navigationBarTitleText": "孩子专属内容池",
+    "navigationBarBackgroundColor": "#07A348",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F7FAF8",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#6B7280",
+    "selectedColor": "#07A348",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/materials/materials",
+        "text": "资料"
+      },
+      {
+        "pagePath": "pages/assessment/assessment",
+        "text": "测评"
+      },
+      {
+        "pagePath": "pages/camp/camp",
+        "text": "训练营"
+      },
+      {
+        "pagePath": "pages/my/my",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}
+

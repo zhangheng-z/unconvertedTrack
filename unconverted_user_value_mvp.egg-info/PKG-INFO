@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: unconverted-user-value-mvp
+Version: 0.1.0
+Summary: MVP backend for the unconverted user value loop.
+Requires-Python: >=3.11
+Requires-Dist: fastapi>=0.111.0
+Requires-Dist: uvicorn[standard]>=0.30.0
+Requires-Dist: sqlalchemy>=2.0.30
+Requires-Dist: pymysql>=1.1.1
+Requires-Dist: pydantic-settings>=2.3.0
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: tzdata>=2025.2
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: PyJWT>=2.10.0
+Provides-Extra: redis
+Requires-Dist: redis>=5.0.0; extra == "redis"
+Requires-Dist: dramatiq[redis]>=1.17.0; extra == "redis"
+Provides-Extra: test
+Requires-Dist: pytest>=8.2.0; extra == "test"
+Requires-Dist: httpx>=0.27.0; extra == "test"

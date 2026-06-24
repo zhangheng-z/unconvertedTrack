@@ -1,0 +1,20 @@
+<view class="page-shell materials-page">
+  <view class="page-head">
+    <text class="head-title">我的资料</text>
+    <text class="head-copy">已领取的 PDF、图片和训练资料会集中在这里</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">正在加载资料</view>
+  <block wx:elif="{{assets.length}}">
+    <view wx:for="{{assets}}" wx:key="content_id" class="asset-card" data-id="{{item.content_id}}" bindtap="openDetail">
+      <view class="asset-cover">{{item.typeLabel}}</view>
+      <view class="asset-main">
+        <text class="asset-title">{{item.title}}</text>
+        <text class="asset-meta">分享 {{item.share_count}} 次 · {{item.unlocked ? '可下载' : '待解锁'}}</text>
+      </view>
+      <text class="asset-arrow">›</text>
+    </view>
+  </block>
+  <empty-state wx:else title="还没有领取资料" text="去首页内容池领取适合孩子的资料"></empty-state>
+</view>
+

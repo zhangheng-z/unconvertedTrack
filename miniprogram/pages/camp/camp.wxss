@@ -1,0 +1,103 @@
+.camp-page {
+  padding-top: 28rpx;
+}
+
+.camp-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  padding: 34rpx 30rpx;
+  border-radius: 24rpx;
+  background: linear-gradient(135deg, #eaf8ef 0%, #ffffff 100%);
+  border: 2rpx solid #d9f0e2;
+}
+
+.camp-label {
+  color: #07a348;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.camp-title {
+  color: #17212b;
+  font-size: 42rpx;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.camp-copy {
+  color: #667085;
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+
+.camp-card {
+  margin-top: 22rpx;
+  padding: 28rpx;
+  border-radius: 22rpx;
+  background: #ffffff;
+  box-shadow: 0 10rpx 28rpx rgba(23, 33, 43, 0.06);
+}
+
+.card-title {
+  display: block;
+  color: #17212b;
+  font-size: 29rpx;
+  font-weight: 850;
+}
+
+.task-title {
+  display: block;
+  margin-top: 18rpx;
+  color: #07a348;
+  font-size: 34rpx;
+  font-weight: 900;
+}
+
+.task-copy {
+  display: block;
+  margin-top: 10rpx;
+  color: #667085;
+  font-size: 25rpx;
+  line-height: 1.5;
+}
+
+.task-button {
+  margin-top: 24rpx;
+}
+
+.path-row {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 22rpx;
+}
+
+.path-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42rpx;
+  height: 42rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #07a348;
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 850;
+}
+
+.path-title {
+  display: block;
+  color: #17212b;
+  font-size: 27rpx;
+  font-weight: 800;
+}
+
+.path-copy {
+  display: block;
+  margin-top: 6rpx;
+  color: #667085;
+  font-size: 23rpx;
+  line-height: 1.4;
+}
+

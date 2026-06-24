@@ -1,0 +1,19 @@
+<view class="page-shell home-page">
+  <view class="page-title">
+    <text class="title-main">适合{{profileAgeText}}孩子的内容</text>
+    <text class="title-copy">根据孩子年龄、年级和关注问题生成</text>
+  </view>
+
+  <view class="search-row">
+    <input class="search-input" placeholder="搜索资料/问题" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="loadContents" />
+  </view>
+
+  <filter-bar value="{{filters}}" bind:change="onFilterChange"></filter-bar>
+
+  <view wx:if="{{loading}}" class="loading">正在匹配内容</view>
+  <block wx:elif="{{contents.length}}">
+    <content-card wx:for="{{contents}}" wx:key="id" item="{{item}}" bind:select="openDetail"></content-card>
+  </block>
+  <empty-state wx:else title="没有匹配资料" text="调整学科、类型或重新生成孩子内容池"></empty-state>
+</view>
+

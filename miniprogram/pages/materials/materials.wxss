@@ -1,0 +1,82 @@
+.materials-page {
+  padding-top: 28rpx;
+}
+
+.page-head {
+  padding: 30rpx;
+  border-radius: 22rpx;
+  background: linear-gradient(135deg, #eaf8ef 0%, #ffffff 100%);
+  border: 2rpx solid #d9f0e2;
+}
+
+.head-title {
+  display: block;
+  color: #17212b;
+  font-size: 40rpx;
+  font-weight: 850;
+}
+
+.head-copy {
+  display: block;
+  margin-top: 10rpx;
+  color: #667085;
+  font-size: 25rpx;
+  line-height: 1.45;
+}
+
+.loading {
+  padding: 70rpx 0;
+  color: #667085;
+  text-align: center;
+}
+
+.asset-card {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-top: 20rpx;
+  padding: 22rpx;
+  border-radius: 20rpx;
+  background: #ffffff;
+  box-shadow: 0 10rpx 28rpx rgba(23, 33, 43, 0.06);
+}
+
+.asset-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 86rpx;
+  height: 86rpx;
+  flex-shrink: 0;
+  border-radius: 18rpx;
+  background: #eaf8ef;
+  color: #07a348;
+  font-size: 24rpx;
+  font-weight: 850;
+}
+
+.asset-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.asset-title {
+  display: block;
+  color: #17212b;
+  font-size: 29rpx;
+  font-weight: 780;
+  line-height: 1.35;
+}
+
+.asset-meta {
+  display: block;
+  margin-top: 8rpx;
+  color: #667085;
+  font-size: 23rpx;
+}
+
+.asset-arrow {
+  color: #98a2b3;
+  font-size: 44rpx;
+}
+

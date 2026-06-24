@@ -1,0 +1,25 @@
+<view class="content-card" bindtap="handleTap">
+  <view class="cover-box">
+    <image wx:if="{{display.cover_url}}" class="cover-image" mode="aspectFill" src="{{display.cover_url}}"></image>
+    <view wx:else class="cover-fallback {{display.content_type}}">
+      <text class="cover-type">{{typeLabel}}</text>
+      <text class="cover-name">{{display.coverTitle}}</text>
+    </view>
+  </view>
+  <view class="card-body">
+    <text class="title">{{display.title}}</text>
+    <view class="tag-row">
+      <text wx:if="{{display.subject}}" class="tag blue">{{display.subject}}</text>
+      <text wx:if="{{display.problem}}" class="tag">{{display.problem}}</text>
+      <text class="tag warm">{{display.ageLabel}}</text>
+      <text class="tag red">{{typeLabel}}</text>
+    </view>
+    <view class="stats-row">
+      <text>{{display.claimCount}}人领取</text>
+      <text>·</text>
+      <text>{{display.shareCount}}人分享</text>
+    </view>
+    <button class="claim-button" catchtap="handleAction">{{display.actionText}}</button>
+  </view>
+</view>
+

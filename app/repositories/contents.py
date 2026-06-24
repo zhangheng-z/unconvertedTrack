@@ -1,0 +1,158 @@
+from datetime import datetime, timedelta
+
+from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy.orm import Session
+
+from app.models import Content, ContentEvent, ContentTag, UserContentAsset
+from app.utils.time import now
+
+
+class ContentRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get(self, content_id: int) -> Content | None:
+        return self.db.get(Content, content_id)
+
+    def list_all(self) -> list[Content]:
+        stmt = select(Content).order_by(desc(Content.updated_at))
+        return list(self.db.scalars(stmt))
+
+    def list_published(
+        self,
+        age: int | None = None,
+        grade: str | None = None,
+        subject: str | None = None,
+        problem: str | None = None,
+        content_type: str | None = None,
+        sort: str = "smart",
+    ) -> list[Content]:
+        stmt = select(Content).where(Content.is_published.is_(True))
+        if age is not None:
+            stmt = stmt.where(
+                and_(
+                    or_(Content.target_age_min.is_(None), Content.target_age_min <= age),
+                    or_(Content.target_age_max.is_(None), Content.target_age_max >= age),
+                )
+            )
+        if grade:
+            stmt = stmt.where(or_(Content.grade.is_(None), Content.grade == grade))
+        if subject:
+            stmt = stmt.where(Content.subject == subject)
+        if problem:
+            stmt = stmt.where(Content.problem == problem)
+        if content_type:
+            stmt = stmt.where(Content.content_type == content_type)
+        if sort == "latest":
+            stmt = stmt.order_by(desc(Content.created_at))
+        elif sort == "popular":
+            stmt = stmt.outerjoin(ContentEvent).group_by(Content.id).order_by(desc(func.count(ContentEvent.id)))
+        else:
+            stmt = stmt.order_by(desc(Content.updated_at))
+        return list(self.db.scalars(stmt))
+
+    def create(self, data: dict, tags: list[str]) -> Content:
+        content = Content(**data)
+        self.db.add(content)
+        self.db.flush()
+        self.replace_tags(content, tags)
+        self.db.flush()
+        return content
+
+    def update(self, content: Content, data: dict, tags: list[str] | None) -> Content:
+        for key, value in data.items():
+            if value is not None:
+                setattr(content, key, value)
+        if tags is not None:
+            self.replace_tags(content, tags)
+        self.db.flush()
+        return content
+
+    def replace_tags(self, content: Content, tags: list[str]) -> None:
+        self.db.query(ContentTag).filter(ContentTag.content_id == content.id).delete()
+        self.db.add_all(ContentTag(content_id=content.id, tag_type="custom", tag_value=tag) for tag in tags)
+
+    def get_asset(self, user_id: int, content_id: int) -> UserContentAsset | None:
+        return self.db.scalar(
+            select(UserContentAsset).where(
+                UserContentAsset.user_id == user_id,
+                UserContentAsset.content_id == content_id,
+            )
+        )
+
+    def claim_asset(self, user_id: int, content_id: int) -> UserContentAsset:
+        asset = self.get_asset(user_id, content_id)
+        if asset is None:
+            asset = UserContentAsset(user_id=user_id, content_id=content_id, unlocked=True)
+            self.db.add(asset)
+            self.db.flush()
+        return asset
+
+    def record_event(
+        self,
+        event_type: str,
+        user_id: int | None,
+        child_id: int | None = None,
+        content_id: int | None = None,
+        source_channel: str | None = None,
+        properties: dict | None = None,
+    ) -> ContentEvent:
+        event = ContentEvent(
+            user_id=user_id,
+            child_id=child_id,
+            content_id=content_id,
+            event_type=event_type,
+            source_channel=source_channel,
+            properties=properties or {},
+        )
+        self.db.add(event)
+        self.db.flush()
+        return event
+
+    def list_assets(self, user_id: int) -> list[tuple[UserContentAsset, Content]]:
+        stmt = (
+            select(UserContentAsset, Content)
+            .join(Content, Content.id == UserContentAsset.content_id)
+            .where(UserContentAsset.user_id == user_id)
+            .order_by(desc(UserContentAsset.updated_at))
+        )
+        return list(self.db.execute(stmt).all())
+
+    def event_count(self, event_type: str, since: datetime) -> int:
+        return self.db.scalar(
+            select(func.count(ContentEvent.id)).where(ContentEvent.event_type == event_type, ContentEvent.created_at >= since)
+        ) or 0
+
+    def active_user_count(self, since: datetime) -> int:
+        return self.db.scalar(
+            select(func.count(func.distinct(ContentEvent.user_id))).where(ContentEvent.created_at >= since)
+        ) or 0
+
+    def preference_counts(self, field, since: datetime, limit: int = 10) -> list[tuple[str, int]]:
+        stmt = (
+            select(field, func.count(ContentEvent.id))
+            .join(ContentEvent, ContentEvent.content_id == Content.id)
+            .where(ContentEvent.created_at >= since, field.is_not(None))
+            .group_by(field)
+            .order_by(desc(func.count(ContentEvent.id)))
+            .limit(limit)
+        )
+        return [(str(key), count) for key, count in self.db.execute(stmt).all()]
+
+    def age_counts(self, since: datetime, limit: int = 10) -> list[tuple[str, int]]:
+        stmt = (
+            select(ContentEvent.properties, func.count(ContentEvent.id))
+            .where(ContentEvent.created_at >= since)
+            .group_by(ContentEvent.properties)
+            .limit(200)
+        )
+        counts: dict[str, int] = {}
+        for props, count in self.db.execute(stmt).all():
+            age = (props or {}).get("age")
+            if age is not None:
+                counts[str(age)] = counts.get(str(age), 0) + count
+        return sorted(counts.items(), key=lambda item: item[1], reverse=True)[:limit]
+
+    @staticmethod
+    def since_days(days: int) -> datetime:
+        return now() - timedelta(days=days)

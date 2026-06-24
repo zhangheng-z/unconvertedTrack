@@ -1,0 +1,43 @@
+<view class="page-shell onboarding-page">
+  <view class="top-bar">
+    <text class="back-mark">‹</text>
+    <text class="top-title">为孩子生成专属内容</text>
+  </view>
+  <text class="sub-title">选择孩子情况，我们会推荐更适合的资料和方案</text>
+
+  <view class="form-section">
+    <text class="field-label">孩子年龄</text>
+    <view class="option-row age-row">
+      <text wx:for="{{ages}}" wx:key="label" class="option {{form.age_label === item.label ? 'active' : ''}}" data-label="{{item.label}}" data-age="{{item.value}}" bindtap="selectAge">{{item.label}}</text>
+    </view>
+  </view>
+
+  <view class="form-section">
+    <text class="field-label">孩子年级</text>
+    <view class="option-row grade-row">
+      <text wx:for="{{grades}}" wx:key="*this" class="option {{form.child_grade === item ? 'active' : ''}}" data-value="{{item}}" bindtap="selectGrade">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="form-section">
+    <view class="label-line">
+      <text class="field-label">关注问题</text>
+      <text class="field-hint">可多选，最多3个</text>
+    </view>
+    <view class="option-grid concern-grid">
+      <text wx:for="{{concerns}}" wx:key="*this" class="option concern {{selectedConcerns[item] ? 'active' : ''}}" data-value="{{item}}" bindtap="toggleConcern">{{item}}<text wx:if="{{selectedConcerns[item]}}" class="check-mark">✓</text></text>
+    </view>
+  </view>
+
+  <view class="ai-card">
+    <view class="ai-icon">AI</view>
+    <view>
+      <text class="ai-title">我们会根据选择</text>
+      <text class="ai-copy">为孩子生成专属内容池，并持续推荐更合适的资料</text>
+    </view>
+  </view>
+
+  <button class="primary-button submit-button" loading="{{submitting}}" bindtap="submitProfile">生成内容池</button>
+  <text class="privacy-note">信息仅用于内容推荐，不会对外展示</text>
+</view>
+

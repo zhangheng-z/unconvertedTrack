@@ -1,0 +1,26 @@
+<view class="page-shell camp-page">
+  <view class="camp-hero">
+    <text class="camp-label">训练营</text>
+    <text class="camp-title">7 天基础提升训练</text>
+    <text class="camp-copy">把资料变成每天能完成的小任务，帮助家长持续观察孩子变化。</text>
+  </view>
+
+  <view class="camp-card">
+    <text class="card-title">今日任务</text>
+    <text class="task-title">识字阅读 15 分钟</text>
+    <text class="task-copy">读一篇短文，圈出生字，并完成 3 道理解题。</text>
+    <button class="primary-button task-button">开始打卡</button>
+  </view>
+
+  <view class="camp-card">
+    <text class="card-title">训练路径</text>
+    <view wx:for="{{steps}}" wx:key="title" class="path-row">
+      <text class="path-dot">{{index + 1}}</text>
+      <view>
+        <text class="path-title">{{item.title}}</text>
+        <text class="path-copy">{{item.copy}}</text>
+      </view>
+    </view>
+  </view>
+</view>
+

@@ -1,0 +1,273 @@
+.detail-page {
+  padding-top: 26rpx;
+}
+
+.loading {
+  padding: 80rpx 0;
+  color: #667085;
+  text-align: center;
+}
+
+.hero-cover {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: 28rpx 0 20rpx;
+}
+
+.cover-paper {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 390rpx;
+  height: 390rpx;
+  padding: 34rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(160deg, #ffe2e8 0%, #fff7eb 100%);
+  box-shadow: 0 18rpx 38rpx rgba(240, 68, 56, 0.12);
+}
+
+.cover-paper.video {
+  background: linear-gradient(160deg, #eaf8ef 0%, #dff7f2 100%);
+}
+
+.cover-paper.assessment {
+  background: linear-gradient(160deg, #fff2d2 0%, #ffe2d8 100%);
+}
+
+.cover-paper.camp {
+  background: linear-gradient(160deg, #eaf8ef 0%, #dfeaff 100%);
+}
+
+.cover-badge {
+  align-self: flex-start;
+  min-height: 40rpx;
+  padding: 0 14rpx;
+  border-radius: 10rpx;
+  background: #f04438;
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 850;
+  line-height: 40rpx;
+}
+
+.cover-title {
+  color: #17212b;
+  font-size: 42rpx;
+  font-weight: 900;
+  line-height: 1.22;
+  text-align: center;
+}
+
+.cover-sub {
+  color: #667085;
+  font-size: 26rpx;
+  text-align: center;
+}
+
+.page-count {
+  position: absolute;
+  right: 86rpx;
+  bottom: 30rpx;
+  min-width: 70rpx;
+  min-height: 42rpx;
+  border-radius: 24rpx;
+  background: rgba(23, 33, 43, 0.42);
+  color: #ffffff;
+  font-size: 22rpx;
+  line-height: 42rpx;
+  text-align: center;
+}
+
+.detail-title {
+  display: block;
+  margin-top: 8rpx;
+  color: #17212b;
+  font-size: 34rpx;
+  font-weight: 850;
+  line-height: 1.32;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-top: 14rpx;
+}
+
+.detail-tag {
+  min-height: 38rpx;
+  padding: 0 12rpx;
+  border-radius: 9rpx;
+  background: #eaf8ef;
+  color: #07a348;
+  font-size: 22rpx;
+  line-height: 38rpx;
+}
+
+.detail-tag.blue {
+  background: #e8f2ff;
+  color: #2775cf;
+}
+
+.detail-tag.warm {
+  background: #fff2d2;
+  color: #b46a00;
+}
+
+.detail-tag.red {
+  background: #ffe9e7;
+  color: #f04438;
+}
+
+.stats-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  margin-top: 16rpx;
+  color: #8a95a3;
+  font-size: 23rpx;
+}
+
+.favorite {
+  margin-left: auto;
+  color: #667085;
+}
+
+.section-block {
+  margin-top: 28rpx;
+  padding: 26rpx;
+  border-radius: 22rpx;
+  background: #ffffff;
+  box-shadow: 0 10rpx 28rpx rgba(23, 33, 43, 0.06);
+}
+
+.block-title {
+  display: block;
+  color: #17212b;
+  font-size: 29rpx;
+  font-weight: 850;
+}
+
+.block-copy {
+  display: block;
+  margin-top: 12rpx;
+  color: #667085;
+  font-size: 25rpx;
+  line-height: 1.52;
+}
+
+.receive-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  margin-top: 18rpx;
+}
+
+.receive-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 138rpx;
+  padding: 24rpx;
+  border-radius: 18rpx;
+  background: #eaf8ef;
+  color: #07a348;
+  text-align: left;
+}
+
+.receive-card.invite {
+  background: #fff5e8;
+  color: #f79009;
+}
+
+.receive-title {
+  font-size: 28rpx;
+  font-weight: 850;
+}
+
+.receive-copy {
+  margin-top: 10rpx;
+  font-size: 23rpx;
+  line-height: 1.35;
+}
+
+.next-panel {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-top: 24rpx;
+  padding: 24rpx;
+  border-radius: 22rpx;
+  background: linear-gradient(135deg, #eaf8ef 0%, #ffffff 100%);
+}
+
+.next-question {
+  display: block;
+  color: #17212b;
+  font-size: 29rpx;
+  font-weight: 850;
+}
+
+.next-copy {
+  display: block;
+  margin-top: 8rpx;
+  color: #667085;
+  font-size: 23rpx;
+}
+
+.next-button {
+  min-width: 130rpx;
+  min-height: 60rpx;
+  border-radius: 30rpx;
+  background: #07a348;
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 750;
+}
+
+.download-button {
+  margin-top: 24rpx;
+}
+
+.related-block {
+  margin-top: 30rpx;
+}
+
+.related-scroll {
+  margin-top: 18rpx;
+  white-space: nowrap;
+}
+
+.related-row {
+  display: inline-flex;
+  gap: 16rpx;
+}
+
+.related-card {
+  width: 190rpx;
+  padding: 14rpx;
+  border-radius: 18rpx;
+  background: #ffffff;
+}
+
+.related-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 110rpx;
+  border-radius: 14rpx;
+  background: #eaf8ef;
+  color: #07a348;
+  font-weight: 850;
+}
+
+.related-title {
+  display: block;
+  margin-top: 10rpx;
+  color: #17212b;
+  font-size: 22rpx;
+  line-height: 1.35;
+  white-space: normal;
+}
+

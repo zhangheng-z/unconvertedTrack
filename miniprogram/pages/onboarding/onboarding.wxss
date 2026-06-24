@@ -1,0 +1,158 @@
+.onboarding-page {
+  padding-top: 28rpx;
+}
+
+.top-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 72rpx;
+}
+
+.back-mark {
+  position: absolute;
+  left: 0;
+  color: #17212b;
+  font-size: 58rpx;
+  line-height: 1;
+}
+
+.top-title {
+  color: #17212b;
+  font-size: 31rpx;
+  font-weight: 850;
+}
+
+.sub-title {
+  display: block;
+  margin-top: 6rpx;
+  color: #8a95a3;
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.form-section {
+  margin-top: 38rpx;
+}
+
+.label-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 18rpx;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 18rpx;
+  color: #17212b;
+  font-size: 28rpx;
+  font-weight: 850;
+}
+
+.label-line .field-label {
+  margin-bottom: 0;
+}
+
+.field-hint {
+  color: #8a95a3;
+  font-size: 23rpx;
+}
+
+.option-row,
+.option-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.age-row .option {
+  min-width: 108rpx;
+}
+
+.grade-row .option {
+  min-width: 160rpx;
+}
+
+.option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 64rpx;
+  padding: 0 22rpx;
+  border: 2rpx solid #e4e9e6;
+  border-radius: 16rpx;
+  background: #ffffff;
+  color: #44515d;
+  font-size: 25rpx;
+  font-weight: 700;
+}
+
+.option.active {
+  border-color: #07a348;
+  background: #07a348;
+  color: #ffffff;
+  box-shadow: 0 12rpx 22rpx rgba(7, 163, 72, 0.16);
+}
+
+.concern-grid .option {
+  min-width: 190rpx;
+  justify-content: space-between;
+}
+
+.check-mark {
+  margin-left: 10rpx;
+}
+
+.ai-card {
+  display: flex;
+  gap: 18rpx;
+  margin-top: 40rpx;
+  padding: 26rpx;
+  border-radius: 22rpx;
+  background: #eaf8ef;
+}
+
+.ai-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  flex-shrink: 0;
+  border-radius: 20rpx;
+  background: #07a348;
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 850;
+}
+
+.ai-title {
+  display: block;
+  color: #17212b;
+  font-size: 26rpx;
+  font-weight: 800;
+}
+
+.ai-copy {
+  display: block;
+  margin-top: 6rpx;
+  color: #52605d;
+  font-size: 24rpx;
+  line-height: 1.45;
+}
+
+.submit-button {
+  margin-top: 48rpx;
+}
+
+.privacy-note {
+  display: block;
+  margin-top: 22rpx;
+  color: #6b7280;
+  font-size: 23rpx;
+  text-align: center;
+}
+

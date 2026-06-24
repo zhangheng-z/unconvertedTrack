@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "内容池",
+  "usingComponents": {
+    "content-card": "../../components/content-card/content-card",
+    "filter-bar": "../../components/filter-bar/filter-bar",
+    "empty-state": "../../components/empty-state/empty-state"
+  }
+}
+

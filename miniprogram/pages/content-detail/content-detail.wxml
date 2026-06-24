@@ -1,0 +1,70 @@
+<view class="page-shell detail-page">
+  <view wx:if="{{loading}}" class="loading">正在打开资料</view>
+  <block wx:else>
+    <view class="hero-cover">
+      <view class="cover-paper {{detail.content_type}}">
+        <text class="cover-badge">{{typeLabel}}</text>
+        <text class="cover-title">{{detail.title}}</text>
+        <text class="cover-sub">可打印</text>
+      </view>
+      <text class="page-count">1/12</text>
+    </view>
+
+    <text class="detail-title">{{detail.title}}</text>
+    <view class="tag-row">
+      <text wx:if="{{detail.subject}}" class="detail-tag blue">{{detail.subject}}</text>
+      <text wx:if="{{detail.problem}}" class="detail-tag">{{detail.problem}}</text>
+      <text class="detail-tag warm">{{ageLabel}}</text>
+      <text class="detail-tag red">{{typeLabel}}</text>
+    </view>
+
+    <view class="stats-row">
+      <text>{{claimCount}}人领取</text>
+      <text>·</text>
+      <text>{{shareCount}}人分享</text>
+      <text class="favorite">☆ 收藏</text>
+    </view>
+
+    <view class="section-block">
+      <text class="block-title">资料简介</text>
+      <text class="block-copy">{{detail.summary || '帮助家长快速了解孩子当前学习情况，并提供针对性训练建议。'}}</text>
+    </view>
+
+    <view class="section-block">
+      <text class="block-title">领取方式</text>
+      <view class="receive-grid">
+        <button class="receive-card free" loading="{{claiming}}" bindtap="claim">
+          <text class="receive-title">免费领取</text>
+          <text class="receive-copy">直接保存到我的资料</text>
+        </button>
+        <button class="receive-card invite" loading="{{sharing}}" bindtap="share">
+          <text class="receive-title">邀请1位家长</text>
+          <text class="receive-copy">解锁完整版</text>
+        </button>
+      </view>
+    </view>
+
+    <view class="next-panel">
+      <view>
+        <text class="next-question">孩子识字量是否达标？</text>
+        <text class="next-copy">做5分钟测评，获取专属建议</text>
+      </view>
+      <button class="next-button" bindtap="openNextAction">去测评</button>
+    </view>
+
+    <button class="primary-button download-button" loading="{{downloading}}" bindtap="download">下载资料</button>
+
+    <view class="related-block">
+      <text class="block-title">相关推荐</text>
+      <scroll-view scroll-x class="related-scroll">
+        <view class="related-row">
+          <view wx:for="{{related}}" wx:key="title" class="related-card">
+            <view class="related-cover">{{item.type}}</view>
+            <text class="related-title">{{item.title}}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </block>
+</view>
+

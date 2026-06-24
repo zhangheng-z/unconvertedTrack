@@ -1,0 +1,52 @@
+.filter-panel {
+  padding: 22rpx 0 2rpx;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  margin-bottom: 18rpx;
+}
+
+.filter-row.last {
+  margin-bottom: 0;
+}
+
+.filter-label {
+  width: 64rpx;
+  flex-shrink: 0;
+  color: #17212b;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.filter-scroll {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.chip-row {
+  display: inline-flex;
+  gap: 12rpx;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 50rpx;
+  padding: 0 20rpx;
+  border-radius: 16rpx;
+  background: #ffffff;
+  color: #44515d;
+  border: 2rpx solid #e5e9e7;
+  font-size: 24rpx;
+  line-height: 50rpx;
+}
+
+.filter-chip.active {
+  background: #07a348;
+  color: #ffffff;
+  border-color: #07a348;
+}
+

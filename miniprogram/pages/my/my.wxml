@@ -1,0 +1,83 @@
+<view class="page-shell my-page">
+  <view class="profile-summary-card">
+    <button
+      class="profile-avatar-button"
+      style="width:96rpx;height:96rpx;min-width:96rpx;min-height:96rpx;"
+      plain="true"
+      open-type="chooseAvatar"
+      bindchooseavatar="chooseAvatar"
+    >
+      <image wx:if="{{avatarUrl}}" class="profile-avatar" src="{{avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="profile-avatar profile-avatar-text">家</view>
+    </button>
+    <view class="profile-main" bindtap="showProfileEditor">
+      <text class="profile-name">{{displayName}}</text>
+      <text class="profile-copy">关注：{{concernText}}</text>
+    </view>
+    <view class="edit-pill" bindtap="showProfileEditor">编辑资料 ></view>
+  </view>
+
+  <view wx:if="{{isEditingProfile}}" class="profile-edit-card">
+    <view class="nickname-field">
+      <text class="field-label">微信昵称</text>
+      <input
+        class="nickname-input"
+        type="nickname"
+        value="{{nickname}}"
+        placeholder="选择或填写微信昵称"
+        bindinput="onNicknameInput"
+      />
+    </view>
+    <view class="edit-actions">
+      <button class="cancel-profile-button" bindtap="hideProfileEditor">取消</button>
+      <button class="save-profile-button" loading="{{savingProfile}}" bindtap="saveWechatProfile">保存</button>
+    </view>
+  </view>
+
+  <view class="child-card" bindtap="goOnboarding">
+    <view>
+      <text class="card-label">孩子信息</text>
+      <text class="child-title">{{profileText}}</text>
+      <text class="child-copy">关注问题：{{concernText}}</text>
+    </view>
+    <text class="child-face">孩</text>
+  </view>
+
+  <view class="menu-list">
+    <view class="menu-row blue" bindtap="goMaterials">
+      <view class="menu-icon">资</view>
+      <view class="menu-main">
+        <text class="menu-title">我的资料</text>
+        <text class="menu-copy">已领取 {{assets.length || 0}} 份</text>
+      </view>
+      <text class="menu-arrow">></text>
+    </view>
+    <view class="menu-row green" bindtap="goAssessment">
+      <view class="menu-icon">测</view>
+      <view class="menu-main">
+        <text class="menu-title">我的测评</text>
+        <text class="menu-copy">已完成 3 次</text>
+      </view>
+      <text class="menu-arrow">></text>
+    </view>
+    <view class="menu-row orange" bindtap="goCamp">
+      <view class="menu-icon">训</view>
+      <view class="menu-main">
+        <text class="menu-title">我的训练营</text>
+        <text class="menu-copy">进行中 1 个</text>
+      </view>
+      <text class="menu-arrow">></text>
+    </view>
+    <view class="menu-row pink">
+      <view class="menu-icon">奖</view>
+      <view class="menu-main">
+        <text class="menu-title">邀请奖励</text>
+        <text class="menu-copy">已邀请 4 位家长，可解锁 3 份高级资料</text>
+      </view>
+      <text class="menu-arrow">></text>
+    </view>
+  </view>
+
+  <button wx:if="{{isLoggedIn}}" class="bottom-logout-button" bindtap="logout">退出登录</button>
+  <button wx:else class="bottom-logout-button login-action" bindtap="loginAgain">重新登录</button>
+</view>
