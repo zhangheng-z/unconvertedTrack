@@ -27,13 +27,19 @@ class ContentListItem(OrmModel):
     cover_url: str | None
     summary: str | None
     next_action: str | None
+    unlock_type: str = "free"
+    unlock_threshold: int = 0
+    is_claimed: bool = False
+    is_unlocked: bool = False
+    user_share_count: int = 0
+    claim_count: int = 0
+    share_count: int = 0
+    lead_count: int = 0
 
 
 class ContentDetail(ContentListItem):
     file_path: str | None
     next_action_url: str | None
-    is_claimed: bool
-    is_unlocked: bool
 
 
 class ClaimResponse(BaseModel):
@@ -59,6 +65,12 @@ class MyAsset(OrmModel):
     content_type: str
     unlocked: bool
     share_count: int
+
+
+class InviteSummary(BaseModel):
+    invited_count: int
+    unlockable_count: int
+    display_text: str
 
 
 class EventCreateRequest(BaseModel):

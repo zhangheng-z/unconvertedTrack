@@ -16,6 +16,8 @@ class ContentCreateRequest(BaseModel):
     file_path: str | None = None
     next_action: str | None = Field(default=None, max_length=80)
     next_action_url: str | None = None
+    unlock_type: str = Field(default="free", max_length=40)
+    unlock_threshold: int = Field(default=0, ge=0, le=100)
     tags: list[str] = Field(default_factory=list)
 
 
@@ -32,6 +34,8 @@ class ContentUpdateRequest(BaseModel):
     file_path: str | None = None
     next_action: str | None = Field(default=None, max_length=80)
     next_action_url: str | None = None
+    unlock_type: str | None = Field(default=None, max_length=40)
+    unlock_threshold: int | None = Field(default=None, ge=0, le=100)
     tags: list[str] | None = None
 
 
@@ -53,7 +57,12 @@ class ContentAdminResponse(OrmModel):
     file_path: str | None
     next_action: str | None
     next_action_url: str | None
+    unlock_type: str
+    unlock_threshold: int
     is_published: bool
+    claim_count: int = 0
+    share_count: int = 0
+    lead_count: int = 0
 
 
 class DashboardOverview(BaseModel):
@@ -85,4 +94,3 @@ class AiTopicSuggestionResponse(OrmModel):
     reason: str
     source_metrics: dict
     status: str
-

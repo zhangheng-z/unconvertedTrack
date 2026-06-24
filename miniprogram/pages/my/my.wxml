@@ -72,7 +72,7 @@
       <view class="menu-icon">奖</view>
       <view class="menu-main">
         <text class="menu-title">邀请奖励</text>
-        <text class="menu-copy">已邀请 4 位家长，可解锁 3 份高级资料</text>
+        <text class="menu-copy">{{inviteCopy}}</text>
       </view>
       <text class="menu-arrow">></text>
     </view>

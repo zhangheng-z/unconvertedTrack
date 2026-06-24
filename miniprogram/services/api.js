@@ -57,6 +57,12 @@ function listMyAssets() {
   })
 }
 
+function getInviteSummary() {
+  return request({
+    url: '/api/v1/me/invite-summary'
+  })
+}
+
 function getMyProfile() {
   return request({
     url: '/api/v1/me/profile'
@@ -106,6 +112,7 @@ module.exports = {
   downloadContent,
   shareContent,
   listMyAssets,
+  getInviteSummary,
   getMyProfile,
   updateMyProfile,
   uploadAvatar

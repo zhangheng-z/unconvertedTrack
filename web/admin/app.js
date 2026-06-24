@@ -38,12 +38,21 @@ async function loadContents() {
         <div>
           <div class="content-title">${item.title}</div>
           <div class="content-meta">${item.content_type || '-'} · ${item.subject || '-'} · ${item.problem || '-'} · ${item.grade || '不限年级'}</div>
+          <div class="content-meta">解锁方式：${unlockLabel(item)}</div>
+          <div class="content-meta">领取 ${item.claim_count ?? 0} · 分享 ${item.share_count ?? 0} · 线索 ${item.lead_count ?? 0}</div>
           <div class="content-meta">${item.summary || ''}</div>
         </div>
         <span class="status">${item.is_published ? '已发布' : '未发布'}</span>
       </article>
     `)
     .join('')
+}
+
+function unlockLabel(item) {
+  if (item.unlock_type === 'invite') {
+    return `邀请 ${item.unlock_threshold || 1} 人解锁`
+  }
+  return '免费领取'
 }
 
 async function uploadFile(file) {
@@ -75,6 +84,8 @@ form.addEventListener('submit', async (event) => {
     summary: formData.get('summary') || null,
     file_path: upload ? upload.file_path : null,
     next_action: formData.get('next_action') || null,
+    unlock_type: formData.get('unlock_type') || 'free',
+    unlock_threshold: numberOrNull(formData.get('unlock_threshold')) || 0,
     tags: []
   }
   const content = await request('/admin/contents', {
@@ -96,4 +107,3 @@ refreshButton.addEventListener('click', () => {
 })
 
 Promise.all([loadDashboard(), loadContents()])
-

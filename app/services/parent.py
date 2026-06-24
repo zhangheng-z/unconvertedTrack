@@ -10,6 +10,7 @@ from app.schemas.parent import (
     ContentDetail,
     ContentListItem,
     DownloadResponse,
+    InviteSummary,
     MyAsset,
     OnboardingProfileRequest,
     OnboardingProfileResponse,
@@ -27,7 +28,7 @@ class ParentService:
 
     def onboard(self, payload: OnboardingProfileRequest, current_user: User | None = None) -> OnboardingProfileResponse:
         open_id = current_user.open_id if current_user else payload.open_id
-        user, child, tags = self.users.upsert_profile(
+        _user, child, tags = self.users.upsert_profile(
             open_id=open_id,
             nickname=payload.nickname,
             source_channel=payload.source_channel,
@@ -35,15 +36,8 @@ class ParentService:
             child_grade=payload.child_grade,
             concerns=payload.concerns,
         )
-        self.contents.record_event(
-            event_type="onboarding",
-            user_id=user.id,
-            child_id=child.id,
-            source_channel=payload.source_channel,
-            properties={"age": child.age, "grade": child.grade, "concerns": payload.concerns},
-        )
         self.db.commit()
-        return OnboardingProfileResponse(user_id=user.id, child_id=child.id, tags=[tag.tag_value for tag in tags])
+        return OnboardingProfileResponse(user_id=child.user_id, child_id=child.id, tags=[tag.tag_value for tag in tags])
 
     def list_contents(
         self,
@@ -57,45 +51,37 @@ class ParentService:
         current_user: User | None = None,
     ) -> list[ContentListItem]:
         user = current_user or (self.users.get_by_open_id(open_id) if open_id else None)
-        child = user.children[0] if user and user.children else None
         contents = self.contents.list_published(age, grade, subject, problem, content_type, sort)
-        if user:
-            self.contents.record_event(
-                event_type="filter",
-                user_id=user.id,
-                child_id=child.id if child else None,
-                properties={"age": age, "grade": grade, "subject": subject, "problem": problem, "content_type": content_type},
-            )
-            self.db.commit()
-        return [ContentListItem.model_validate(content) for content in contents]
+        metrics = self.contents.content_metrics([content.id for content in contents])
+        assets = self.contents.assets_for_contents(user.id, [content.id for content in contents]) if user else {}
+        invited_count = self.contents.user_share_count(user.id) if user else 0
+        return [
+            self._content_list_item(content, metrics.get(content.id, {}), assets.get(content.id), invited_count)
+            for content in contents
+        ]
 
     def detail(self, open_id: str | None, content_id: int, current_user: User | None = None) -> ContentDetail:
         user = current_user or self._require_user(open_id)
         content = self._require_content(content_id, published_only=True)
-        child = user.children[0] if user.children else None
         asset = self.contents.get_asset(user.id, content_id)
-        self.contents.record_event("click", user.id, child.id if child else None, content_id, properties={"age": child.age if child else None})
-        self.db.commit()
+        metrics = self.contents.content_metrics([content.id]).get(content.id, {})
+        invited_count = self.contents.user_share_count(user.id)
         return ContentDetail(
-            id=content.id,
-            title=content.title,
-            content_type=content.content_type,
-            subject=content.subject,
-            problem=content.problem,
-            cover_url=content.cover_url,
-            summary=content.summary,
-            next_action=content.next_action,
+            **self._content_list_item(content, metrics, asset, invited_count).model_dump(),
             file_path=content.file_path,
             next_action_url=content.next_action_url,
-            is_claimed=asset is not None,
-            is_unlocked=bool(asset and asset.unlocked),
         )
 
     def claim(self, open_id: str | None, content_id: int, current_user: User | None = None) -> ClaimResponse:
         user = current_user or self._require_user(open_id)
         content = self._require_content(content_id, published_only=True)
         child = user.children[0] if user.children else None
-        asset = self.contents.claim_asset(user.id, content.id)
+        invited_count = self.contents.user_share_count(user.id)
+        asset = self.contents.claim_asset(
+            user.id,
+            content.id,
+            unlocked=self._is_free_content(content) or self._has_invite_access(content, invited_count),
+        )
         self.contents.record_event("claim", user.id, child.id if child else None, content.id, properties={"age": child.age if child else None})
         self.db.commit()
         return ClaimResponse(content_id=content.id, claimed=True, unlocked=asset.unlocked)
@@ -104,7 +90,15 @@ class ParentService:
         user = current_user or self._require_user(open_id)
         content = self._require_content(content_id, published_only=True)
         child = user.children[0] if user.children else None
-        asset = self.contents.claim_asset(user.id, content.id)
+        invited_count = self.contents.user_share_count(user.id)
+        has_access = self._is_free_content(content) or self._has_invite_access(content, invited_count)
+        asset = self.contents.get_asset(user.id, content.id)
+        if asset is None and has_access:
+            asset = self.contents.claim_asset(user.id, content.id, unlocked=True)
+        if asset is None:
+            raise HTTPException(status_code=403, detail="content is locked")
+        if not asset.unlocked and has_access:
+            asset.unlocked = True
         if not asset.unlocked:
             raise HTTPException(status_code=403, detail="content is locked")
         self.contents.record_event("download", user.id, child.id if child else None, content.id, properties={"age": child.age if child else None})
@@ -115,11 +109,17 @@ class ParentService:
         user = current_user or self._require_user(open_id)
         content = self._require_content(content_id, published_only=True)
         child = user.children[0] if user.children else None
-        asset = self.contents.claim_asset(user.id, content.id)
+        asset = self.contents.claim_asset(
+            user.id,
+            content.id,
+            unlocked=self._is_free_content(content),
+        )
         asset.share_count += 1
-        if asset.share_count >= get_settings().share_unlock_threshold:
-            asset.unlocked = True
         self.contents.record_event("share", user.id, child.id if child else None, content.id, properties={"age": child.age if child else None})
+        invited_count = self.contents.user_share_count(user.id)
+        self.contents.unlock_eligible_invite_assets(user.id, invited_count)
+        if self._is_free_content(content) or self._has_invite_access(content, invited_count):
+            asset.unlocked = True
         self.db.commit()
         return ShareResponse(content_id=content.id, share_count=asset.share_count, unlocked=asset.unlocked)
 
@@ -131,7 +131,22 @@ class ParentService:
             for asset, content in rows
         ]
 
+    def invite_summary(self, open_id: str | None, current_user: User | None = None) -> InviteSummary:
+        user = current_user or self._require_user(open_id)
+        invited_count = self.contents.user_share_count(user.id)
+        self.contents.unlock_eligible_invite_assets(user.id, invited_count)
+        unlockable_count = self.contents.locked_invite_asset_count(user.id, invited_count)
+        if invited_count <= 0:
+            display_text = "已邀请0位家长，仅可领取部分免费资料"
+        elif unlockable_count > 0:
+            display_text = f"已邀请{invited_count}位家长，可解锁{unlockable_count}份高级资料"
+        else:
+            display_text = f"已邀请{invited_count}位家长，可领取全部资料"
+        return InviteSummary(invited_count=invited_count, unlockable_count=unlockable_count, display_text=display_text)
+
     def record_event(self, open_id: str | None, event_type: str, content_id: int | None, properties: dict, current_user: User | None = None) -> None:
+        if event_type not in {"claim", "share", "download"}:
+            raise HTTPException(status_code=400, detail="unsupported content event type")
         user = current_user or self._require_user(open_id)
         child = user.children[0] if user.children else None
         self.contents.record_event(event_type, user.id, child.id if child else None, content_id, properties=properties)
@@ -150,3 +165,39 @@ class ParentService:
         if content is None or (published_only and not content.is_published):
             raise HTTPException(status_code=404, detail="content not found")
         return content
+
+    @staticmethod
+    def _is_free_content(content) -> bool:
+        return (content.unlock_type or "free") == "free"
+
+    @staticmethod
+    def _unlock_threshold(content) -> int:
+        if (content.unlock_type or "free") == "free":
+            return 0
+        return content.unlock_threshold or get_settings().share_unlock_threshold
+
+    @classmethod
+    def _has_invite_access(cls, content, invited_count: int) -> bool:
+        return (content.unlock_type or "free") == "invite" and invited_count >= cls._unlock_threshold(content)
+
+    @classmethod
+    def _content_list_item(cls, content, metrics: dict[str, int], asset=None, invited_count: int = 0) -> ContentListItem:
+        has_invite_access = cls._has_invite_access(content, invited_count)
+        return ContentListItem(
+            id=content.id,
+            title=content.title,
+            content_type=content.content_type,
+            subject=content.subject,
+            problem=content.problem,
+            cover_url=content.cover_url,
+            summary=content.summary,
+            next_action=content.next_action,
+            unlock_type=content.unlock_type or "free",
+            unlock_threshold=cls._unlock_threshold(content),
+            is_claimed=asset is not None,
+            is_unlocked=bool(asset and asset.unlocked) or has_invite_access,
+            user_share_count=invited_count if (content.unlock_type or "free") == "invite" else (asset.share_count if asset else 0),
+            claim_count=metrics.get("claim_count", 0),
+            share_count=metrics.get("share_count", 0),
+            lead_count=metrics.get("lead_count", 0),
+        )

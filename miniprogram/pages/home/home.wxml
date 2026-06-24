@@ -12,8 +12,13 @@
 
   <view wx:if="{{loading}}" class="loading">正在匹配内容</view>
   <block wx:elif="{{contents.length}}">
-    <content-card wx:for="{{contents}}" wx:key="id" item="{{item}}" bind:select="openDetail"></content-card>
+    <content-card
+      wx:for="{{contents}}"
+      wx:key="id"
+      item="{{item}}"
+      bind:select="openDetail"
+      bind:action="handleCardAction"
+    ></content-card>
   </block>
   <empty-state wx:else title="没有匹配资料" text="调整学科、类型或重新生成孩子内容池"></empty-state>
 </view>
-

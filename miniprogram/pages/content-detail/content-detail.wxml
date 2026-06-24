@@ -22,7 +22,7 @@
       <text>{{claimCount}}人领取</text>
       <text>·</text>
       <text>{{shareCount}}人分享</text>
-      <text class="favorite">☆ 收藏</text>
+      <text class="favorite">收藏</text>
     </view>
 
     <view class="section-block">
@@ -32,15 +32,24 @@
 
     <view class="section-block">
       <text class="block-title">领取方式</text>
-      <view class="receive-grid">
-        <button class="receive-card free" loading="{{claiming}}" bindtap="claim">
-          <text class="receive-title">免费领取</text>
-          <text class="receive-copy">直接保存到我的资料</text>
-        </button>
-        <button class="receive-card invite" loading="{{sharing}}" bindtap="share">
-          <text class="receive-title">邀请1位家长</text>
-          <text class="receive-copy">解锁完整版</text>
-        </button>
+      <view class="unlock-panel {{primaryActionState}}">
+        <view class="unlock-head">
+          <text class="unlock-title">{{unlockTitle}}</text>
+          <text class="unlock-badge">{{unlockBadge}}</text>
+        </view>
+        <text class="unlock-copy">{{unlockCopy}}</text>
+        <view class="unlock-actions">
+          <button
+            class="unlock-button {{primaryActionState}}"
+            loading="{{claiming || downloading}}"
+            bindtap="handlePrimaryAction"
+          >{{primaryActionText}}</button>
+          <button
+            class="share-button"
+            loading="{{sharing}}"
+            bindtap="share"
+          >分享给家长</button>
+        </view>
       </view>
     </view>
 
@@ -51,8 +60,6 @@
       </view>
       <button class="next-button" bindtap="openNextAction">去测评</button>
     </view>
-
-    <button class="primary-button download-button" loading="{{downloading}}" bindtap="download">下载资料</button>
 
     <view class="related-block">
       <text class="block-title">相关推荐</text>
@@ -67,4 +74,3 @@
     </view>
   </block>
 </view>
-

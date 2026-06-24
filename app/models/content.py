@@ -23,6 +23,8 @@ class Content(Base):
     file_path: Mapped[str | None] = mapped_column(String(500))
     next_action: Mapped[str | None] = mapped_column(String(80))
     next_action_url: Mapped[str | None] = mapped_column(String(500))
+    unlock_type: Mapped[str] = mapped_column(String(40), default="free", index=True)
+    unlock_threshold: Mapped[int] = mapped_column(Integer, default=0)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     project_id: Mapped[str] = mapped_column(String(64), default="default", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)

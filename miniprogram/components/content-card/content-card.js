@@ -21,29 +21,44 @@ Component({
         camp: '训练营'
       }
       const typeLabel = labels[item.content_type] || '资料'
-      const claimCount = item.claim_count || (1800 + Number(item.id || 1) * 137)
-      const shareCount = item.share_count || (320 + Number(item.id || 1) * 61)
       this.setData({
         typeLabel,
         display: Object.assign({}, item, {
           coverTitle: item.title || typeLabel,
           ageLabel: item.age_label || '7岁',
-          claimCount,
-          shareCount,
-          actionText: item.unlock_type === 'share' ? '邀请1人解锁' : '免费领取'
+          claimCount: item.claim_count || 0,
+          shareCount: item.share_count || 0,
+          actionText: this.actionText(item),
+          actionState: this.actionState(item)
         })
       })
     }
   },
 
   methods: {
+    actionState(item) {
+      if (item.is_claimed) return 'claimed'
+      if (item.is_unlocked) return 'claimable'
+      if (item.unlock_type === 'invite') return 'locked'
+      return 'claimable'
+    },
+
+    actionText(item) {
+      const state = this.actionState(item)
+      if (state === 'claimed') return '已领取'
+      if (state === 'claimable') return '免费领取'
+      return `邀请${item.unlock_threshold || 1}人解锁`
+    },
+
     handleTap() {
       this.triggerEvent('select', { id: this.properties.item.id })
     },
 
     handleAction() {
-      this.triggerEvent('select', { id: this.properties.item.id })
+      this.triggerEvent('action', {
+        id: this.properties.item.id,
+        state: this.data.display.actionState
+      })
     }
   }
 })
-

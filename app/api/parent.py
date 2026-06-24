@@ -16,6 +16,7 @@ from app.schemas.parent import (
     ContentListItem,
     DownloadResponse,
     EventCreateRequest,
+    InviteSummary,
     MyAsset,
     OnboardingProfileRequest,
     OnboardingProfileResponse,
@@ -172,6 +173,15 @@ def my_assets(
     current_user: User | None = Depends(get_optional_user),
 ):
     return ParentService(db).my_assets(open_id, current_user)
+
+
+@router.get("/me/invite-summary", response_model=InviteSummary)
+def invite_summary(
+    open_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
+):
+    return ParentService(db).invite_summary(open_id, current_user)
 
 
 @router.post("/events", status_code=204)

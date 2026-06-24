@@ -1,5 +1,11 @@
 const app = getApp()
-const { getMyProfile, listMyAssets, updateMyProfile, uploadAvatar } = require('../../services/api')
+const {
+  getInviteSummary,
+  getMyProfile,
+  listMyAssets,
+  updateMyProfile,
+  uploadAvatar
+} = require('../../services/api')
 
 Page({
   data: {
@@ -13,6 +19,7 @@ Page({
     profileAgeText: '7岁',
     profileText: '7岁 / 一年级',
     concernText: '语文 / 识字 / 专注力',
+    inviteCopy: '已邀请0位家长，仅可领取部分免费资料',
     assets: []
   },
 
@@ -21,6 +28,7 @@ Page({
     this.refreshChildProfile()
     this.loadProfile()
     this.loadAssets()
+    this.loadInviteSummary()
   },
 
   refreshLoginState() {
@@ -70,6 +78,18 @@ Page({
       })
       .catch(() => {
         this.setData({ assets: [] })
+      })
+  },
+
+  loadInviteSummary() {
+    getInviteSummary()
+      .then((summary) => {
+        this.setData({
+          inviteCopy: summary.display_text || '已邀请0位家长，仅可领取部分免费资料'
+        })
+      })
+      .catch(() => {
+        this.setData({ inviteCopy: '已邀请0位家长，仅可领取部分免费资料' })
       })
   },
 
@@ -144,6 +164,7 @@ Page({
       this.refreshLoginState()
       this.loadProfile()
       this.loadAssets()
+      this.loadInviteSummary()
     })
   },
 
@@ -164,6 +185,7 @@ Page({
           avatarUrl: '',
           avatarTempPath: '',
           assets: [],
+          inviteCopy: '已邀请0位家长，仅可领取部分免费资料',
           profileAgeText: '7岁',
           profileText: '未设置',
           concernText: '未设置'

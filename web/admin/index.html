@@ -42,6 +42,15 @@
             <label>最小年龄<input name="target_age_min" type="number" min="0" max="18" value="6" /></label>
             <label>最大年龄<input name="target_age_max" type="number" min="0" max="18" value="8" /></label>
           </div>
+          <div class="two-cols">
+            <label>解锁方式
+              <select name="unlock_type">
+                <option value="free">免费领取</option>
+                <option value="invite">邀请解锁</option>
+              </select>
+            </label>
+            <label>邀请人数<input name="unlock_threshold" type="number" min="0" max="100" value="0" /></label>
+          </div>
           <label>简介<textarea name="summary" rows="3" placeholder="帮助家长快速判断孩子学习情况"></textarea></label>
           <label>下一步动作<input name="next_action" placeholder="测评 / 训练营 / 领取方案" /></label>
           <label>上传资料文件<input name="file" type="file" /></label>
@@ -60,4 +69,3 @@
     <script src="./app.js"></script>
   </body>
 </html>
-

@@ -67,7 +67,8 @@
 }
 
 .card-body {
-  position: relative;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   flex: 1;
   padding: 4rpx 0;
@@ -116,18 +117,19 @@
 
 .stats-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8rpx;
   margin-top: 10rpx;
   color: #8a95a3;
   font-size: 22rpx;
+  line-height: 1.35;
 }
 
 .claim-button {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  min-width: 132rpx;
+  align-self: flex-end;
+  width: 240rpx;
   min-height: 48rpx;
+  margin-top: 12rpx;
   padding: 0 18rpx;
   border-radius: 24rpx;
   background: #07a348;
@@ -137,3 +139,17 @@
   line-height: 48rpx;
 }
 
+.claim-button.claimable {
+  background: #07a348;
+  color: #ffffff;
+}
+
+.claim-button.claimed {
+  background: #eaf8ef;
+  color: #07a348;
+}
+
+.claim-button.locked {
+  background: #f79009;
+  color: #ffffff;
+}

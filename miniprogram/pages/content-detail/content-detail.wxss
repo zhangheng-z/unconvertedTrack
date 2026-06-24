@@ -192,6 +192,111 @@
   line-height: 1.35;
 }
 
+.unlock-panel {
+  margin-top: 18rpx;
+  padding: 26rpx;
+  border-radius: 22rpx;
+  background: #eefaf3;
+}
+
+.unlock-panel.locked {
+  background: #fff7e8;
+}
+
+.unlock-panel.claimed {
+  background: #f1f5f3;
+}
+
+.unlock-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.unlock-title {
+  display: block;
+  color: #07a348;
+  font-size: 30rpx;
+  font-weight: 850;
+}
+
+.unlock-panel.locked .unlock-title {
+  color: #d97706;
+}
+
+.unlock-panel.claimed .unlock-title {
+  color: #31546d;
+}
+
+.unlock-badge {
+  min-width: 96rpx;
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: #ffffff;
+  color: #07a348;
+  font-size: 22rpx;
+  font-weight: 800;
+  text-align: center;
+}
+
+.unlock-panel.locked .unlock-badge {
+  color: #d97706;
+}
+
+.unlock-panel.claimed .unlock-badge {
+  color: #31546d;
+}
+
+.unlock-copy {
+  display: block;
+  margin-top: 12rpx;
+  color: #667085;
+  font-size: 24rpx;
+  line-height: 1.45;
+}
+
+.unlock-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+.unlock-button,
+.share-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  height: 72rpx;
+  padding: 0 18rpx;
+  border-radius: 36rpx;
+  font-size: 26rpx;
+  font-weight: 850;
+  line-height: 72rpx;
+}
+
+.unlock-button {
+  background: #07a348;
+  color: #ffffff;
+}
+
+.unlock-button.locked {
+  background: #f79009;
+}
+
+.unlock-button.claimed {
+  background: #31546d;
+  color: #ffffff;
+}
+
+.share-button {
+  background: #ffffff;
+  color: #07a348;
+  border: 2rpx solid #ccebd7;
+}
+
 .next-panel {
   display: flex;
   align-items: center;
@@ -270,4 +375,3 @@
   line-height: 1.35;
   white-space: normal;
 }
-

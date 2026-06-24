@@ -1,5 +1,5 @@
 const app = getApp()
-const { listContents } = require('../../services/api')
+const { claimContent, listContents } = require('../../services/api')
 
 Page({
   data: {
@@ -61,6 +61,26 @@ Page({
       })
       .finally(() => {
         this.setData({ loading: false })
+      })
+  },
+
+  handleCardAction(event) {
+    const { id, state } = event.detail
+    if (state === 'claimed') {
+      this.openDetail({ detail: { id } })
+      return
+    }
+    if (state === 'locked') {
+      this.openDetail({ detail: { id } })
+      return
+    }
+    claimContent(id)
+      .then(() => {
+        wx.showToast({ title: '已领取', icon: 'success' })
+        this.loadContents()
+      })
+      .catch((error) => {
+        wx.showToast({ title: error.message || '领取失败', icon: 'none' })
       })
   },
 
