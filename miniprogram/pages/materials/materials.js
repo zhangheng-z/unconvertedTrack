@@ -1,4 +1,3 @@
-const app = getApp()
 const { listMyAssets } = require('../../services/api')
 
 Page({

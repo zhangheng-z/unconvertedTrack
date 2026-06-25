@@ -70,3 +70,17 @@ class UserContentAsset(Base):
     share_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
+
+
+class InviteRecord(Base):
+    __tablename__ = "invite_records"
+    __table_args__ = (UniqueConstraint("inviter_user_id", "invitee_user_id", name="uq_invite_pair"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    inviter_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    invitee_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    source_content_id: Mapped[int | None] = mapped_column(ForeignKey("contents.id"), index=True)
+    status: Mapped[str] = mapped_column(String(40), default="completed", index=True)
+    project_id: Mapped[str] = mapped_column(String(64), default="default", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, default=now)

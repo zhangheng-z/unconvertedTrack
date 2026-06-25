@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import Content, ContentEvent, ContentTag, UserContentAsset
+from app.models import Content, ContentEvent, ContentTag, InviteRecord, UserContentAsset
 from app.utils.time import now
 
 
@@ -131,7 +131,7 @@ class ContentRepository:
         if not content_ids:
             return {}
         metrics = {
-            content_id: {"claim_count": 0, "share_count": 0, "lead_count": 0}
+            content_id: {"claim_count": 0, "share_count": 0, "effective_share_count": 0, "lead_count": 0}
             for content_id in content_ids
         }
         claim_stmt = (
@@ -151,15 +151,48 @@ class ContentRepository:
             if content_id is not None:
                 metrics[content_id]["share_count"] = count
 
+        effective_share_stmt = (
+            select(InviteRecord.source_content_id, func.count(func.distinct(InviteRecord.invitee_user_id)))
+            .where(
+                InviteRecord.source_content_id.in_(content_ids),
+                InviteRecord.status == "completed",
+            )
+            .group_by(InviteRecord.source_content_id)
+        )
+        for content_id, count in self.db.execute(effective_share_stmt).all():
+            if content_id is not None:
+                metrics[content_id]["effective_share_count"] = count
+
         return metrics
 
-    def user_share_count(self, user_id: int) -> int:
+    def completed_invite_count(self, inviter_user_id: int) -> int:
         return self.db.scalar(
-            select(func.count(ContentEvent.id)).where(
-                ContentEvent.user_id == user_id,
-                ContentEvent.event_type == "share",
+            select(func.count(InviteRecord.id)).where(
+                InviteRecord.inviter_user_id == inviter_user_id,
+                InviteRecord.status == "completed",
             )
         ) or 0
+
+    def complete_invite(self, inviter_user_id: int, invitee_user_id: int, source_content_id: int | None) -> bool:
+        existing = self.db.scalar(
+            select(InviteRecord).where(
+                InviteRecord.inviter_user_id == inviter_user_id,
+                InviteRecord.invitee_user_id == invitee_user_id,
+            )
+        )
+        if existing is not None:
+            return False
+        self.db.add(
+            InviteRecord(
+                inviter_user_id=inviter_user_id,
+                invitee_user_id=invitee_user_id,
+                source_content_id=source_content_id,
+                status="completed",
+                completed_at=now(),
+            )
+        )
+        self.db.flush()
+        return True
 
     def locked_invite_asset_count(self, user_id: int, invited_count: int = 0) -> int:
         stmt = (

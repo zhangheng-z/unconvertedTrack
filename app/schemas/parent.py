@@ -34,6 +34,7 @@ class ContentListItem(OrmModel):
     user_share_count: int = 0
     claim_count: int = 0
     share_count: int = 0
+    effective_share_count: int = 0
     lead_count: int = 0
 
 
@@ -59,6 +60,15 @@ class ShareResponse(BaseModel):
     unlocked: bool
 
 
+class ShareOpenRequest(BaseModel):
+    inviter_user_id: int = Field(gt=0)
+    source_content_id: int = Field(gt=0)
+
+
+class ShareOpenResponse(BaseModel):
+    recorded: bool
+
+
 class MyAsset(OrmModel):
     content_id: int
     title: str
@@ -71,6 +81,16 @@ class InviteSummary(BaseModel):
     invited_count: int
     unlockable_count: int
     display_text: str
+
+
+class InviteCompleteRequest(BaseModel):
+    inviter_user_id: int = Field(gt=0)
+    source_content_id: int | None = Field(default=None, gt=0)
+
+
+class InviteCompleteResponse(BaseModel):
+    completed: bool
+    invited_count: int
 
 
 class EventCreateRequest(BaseModel):

@@ -10,10 +10,14 @@ from app.schemas.parent import (
     ContentDetail,
     ContentListItem,
     DownloadResponse,
+    InviteCompleteRequest,
+    InviteCompleteResponse,
     InviteSummary,
     MyAsset,
     OnboardingProfileRequest,
     OnboardingProfileResponse,
+    ShareOpenRequest,
+    ShareOpenResponse,
     ShareResponse,
 )
 from app.services.files import FileStorage
@@ -54,7 +58,10 @@ class ParentService:
         contents = self.contents.list_published(age, grade, subject, problem, content_type, sort)
         metrics = self.contents.content_metrics([content.id for content in contents])
         assets = self.contents.assets_for_contents(user.id, [content.id for content in contents]) if user else {}
-        invited_count = self.contents.user_share_count(user.id) if user else 0
+        invited_count = self.contents.completed_invite_count(user.id) if user else 0
+        if user:
+            self.contents.unlock_eligible_invite_assets(user.id, invited_count)
+            self.db.commit()
         return [
             self._content_list_item(content, metrics.get(content.id, {}), assets.get(content.id), invited_count)
             for content in contents
@@ -63,9 +70,11 @@ class ParentService:
     def detail(self, open_id: str | None, content_id: int, current_user: User | None = None) -> ContentDetail:
         user = current_user or self._require_user(open_id)
         content = self._require_content(content_id, published_only=True)
+        invited_count = self.contents.completed_invite_count(user.id)
+        self.contents.unlock_eligible_invite_assets(user.id, invited_count)
         asset = self.contents.get_asset(user.id, content_id)
         metrics = self.contents.content_metrics([content.id]).get(content.id, {})
-        invited_count = self.contents.user_share_count(user.id)
+        self.db.commit()
         return ContentDetail(
             **self._content_list_item(content, metrics, asset, invited_count).model_dump(),
             file_path=content.file_path,
@@ -76,7 +85,8 @@ class ParentService:
         user = current_user or self._require_user(open_id)
         content = self._require_content(content_id, published_only=True)
         child = user.children[0] if user.children else None
-        invited_count = self.contents.user_share_count(user.id)
+        invited_count = self.contents.completed_invite_count(user.id)
+        self.contents.unlock_eligible_invite_assets(user.id, invited_count)
         asset = self.contents.claim_asset(
             user.id,
             content.id,
@@ -90,7 +100,8 @@ class ParentService:
         user = current_user or self._require_user(open_id)
         content = self._require_content(content_id, published_only=True)
         child = user.children[0] if user.children else None
-        invited_count = self.contents.user_share_count(user.id)
+        invited_count = self.contents.completed_invite_count(user.id)
+        self.contents.unlock_eligible_invite_assets(user.id, invited_count)
         has_access = self._is_free_content(content) or self._has_invite_access(content, invited_count)
         asset = self.contents.get_asset(user.id, content.id)
         if asset is None and has_access:
@@ -109,33 +120,64 @@ class ParentService:
         user = current_user or self._require_user(open_id)
         content = self._require_content(content_id, published_only=True)
         child = user.children[0] if user.children else None
-        asset = self.contents.claim_asset(
-            user.id,
-            content.id,
-            unlocked=self._is_free_content(content),
-        )
-        asset.share_count += 1
+        invited_count = self.contents.completed_invite_count(user.id)
+        asset = self.contents.get_asset(user.id, content.id)
+        if asset is not None:
+            asset.share_count += 1
         self.contents.record_event("share", user.id, child.id if child else None, content.id, properties={"age": child.age if child else None})
-        invited_count = self.contents.user_share_count(user.id)
-        self.contents.unlock_eligible_invite_assets(user.id, invited_count)
-        if self._is_free_content(content) or self._has_invite_access(content, invited_count):
-            asset.unlocked = True
         self.db.commit()
-        return ShareResponse(content_id=content.id, share_count=asset.share_count, unlocked=asset.unlocked)
+        unlocked = bool(asset and asset.unlocked) or self._is_free_content(content) or self._has_invite_access(content, invited_count)
+        return ShareResponse(content_id=content.id, share_count=asset.share_count if asset else 0, unlocked=unlocked)
+
+    def record_share_open(self, payload: ShareOpenRequest) -> ShareOpenResponse:
+        inviter = self.db.get(User, payload.inviter_user_id)
+        content = self._require_content(payload.source_content_id, published_only=True)
+        if inviter is None:
+            return ShareOpenResponse(recorded=False)
+        self.contents.record_event(
+            "share",
+            inviter.id,
+            None,
+            content.id,
+            properties={"stage": "open"},
+        )
+        self.db.commit()
+        return ShareOpenResponse(recorded=True)
+
+    def complete_invite(self, payload: InviteCompleteRequest, current_user: User) -> InviteCompleteResponse:
+        if payload.inviter_user_id == current_user.id:
+            invited_count = self.contents.completed_invite_count(current_user.id)
+            return InviteCompleteResponse(completed=False, invited_count=invited_count)
+        inviter = self.db.get(User, payload.inviter_user_id)
+        if inviter is None:
+            raise HTTPException(status_code=404, detail="inviter not found")
+        completed = self.contents.complete_invite(payload.inviter_user_id, current_user.id, payload.source_content_id)
+        invited_count = self.contents.completed_invite_count(payload.inviter_user_id)
+        self.contents.unlock_eligible_invite_assets(payload.inviter_user_id, invited_count)
+        self.db.commit()
+        return InviteCompleteResponse(completed=completed, invited_count=invited_count)
 
     def my_assets(self, open_id: str | None, current_user: User | None = None) -> list[MyAsset]:
         user = current_user or self._require_user(open_id)
         rows = self.contents.list_assets(user.id)
+        metrics = self.contents.content_metrics([content.id for _asset, content in rows])
         return [
-            MyAsset(content_id=content.id, title=content.title, content_type=content.content_type, unlocked=asset.unlocked, share_count=asset.share_count)
+            MyAsset(
+                content_id=content.id,
+                title=content.title,
+                content_type=content.content_type,
+                unlocked=asset.unlocked,
+                share_count=metrics.get(content.id, {}).get("share_count", 0),
+            )
             for asset, content in rows
         ]
 
     def invite_summary(self, open_id: str | None, current_user: User | None = None) -> InviteSummary:
         user = current_user or self._require_user(open_id)
-        invited_count = self.contents.user_share_count(user.id)
+        invited_count = self.contents.completed_invite_count(user.id)
         self.contents.unlock_eligible_invite_assets(user.id, invited_count)
         unlockable_count = self.contents.locked_invite_asset_count(user.id, invited_count)
+        self.db.commit()
         if invited_count <= 0:
             display_text = "已邀请0位家长，仅可领取部分免费资料"
         elif unlockable_count > 0:
@@ -199,5 +241,6 @@ class ParentService:
             user_share_count=invited_count if (content.unlock_type or "free") == "invite" else (asset.share_count if asset else 0),
             claim_count=metrics.get("claim_count", 0),
             share_count=metrics.get("share_count", 0),
+            effective_share_count=metrics.get("effective_share_count", 0),
             lead_count=metrics.get("lead_count", 0),
         )

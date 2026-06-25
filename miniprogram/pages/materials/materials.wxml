@@ -10,11 +10,10 @@
       <view class="asset-cover">{{item.typeLabel}}</view>
       <view class="asset-main">
         <text class="asset-title">{{item.title}}</text>
-        <text class="asset-meta">分享 {{item.share_count}} 次 · {{item.unlocked ? '可下载' : '待解锁'}}</text>
+        <text class="asset-meta">{{item.unlocked ? '可下载' : '待解锁'}}</text>
       </view>
       <text class="asset-arrow">›</text>
     </view>
   </block>
   <empty-state wx:else title="还没有领取资料" text="去首页内容池领取适合孩子的资料"></empty-state>
 </view>
-

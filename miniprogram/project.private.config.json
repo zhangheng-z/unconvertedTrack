@@ -1,7 +1,19 @@
 {
   "projectname": "miniprogram",
   "libVersion": "3.15.3",
-  "condition": {},
+  "condition": {
+    "miniprogram": {
+      "list": [
+        {
+          "name": "用户b打开邀请链接",
+          "pathName": "pages/content-detail/content-detail",
+          "query": "id=2&inviter_user_id=9&source_content_id=2",
+          "scene": null,
+          "launchMode": "default"
+        }
+      ]
+    }
+  },
   "setting": {
     "urlCheck": false,
     "coverView": false,

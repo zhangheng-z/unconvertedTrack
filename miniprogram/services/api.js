@@ -51,6 +51,14 @@ function shareContent(contentId) {
   })
 }
 
+function completeInvite(payload) {
+  return request({
+    url: '/api/v1/invites/complete',
+    method: 'POST',
+    data: payload
+  })
+}
+
 function listMyAssets() {
   return request({
     url: '/api/v1/me/assets'
@@ -111,6 +119,7 @@ module.exports = {
   claimContent,
   downloadContent,
   shareContent,
+  completeInvite,
   listMyAssets,
   getInviteSummary,
   getMyProfile,

@@ -1,6 +1,12 @@
 from fastapi.testclient import TestClient
 
 
+def auth_header(client: TestClient, code: str) -> dict[str, str]:
+    response = client.post("/api/v1/auth/wechat-login", json={"code": code})
+    assert response.status_code == 200
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
 def create_and_publish_content(
     client: TestClient,
     unlock_type: str = "free",
@@ -80,6 +86,7 @@ def test_parent_mvp_loop_and_admin_metrics(client: TestClient):
     assert updated_detail.status_code == 200
     assert updated_detail.json()["claim_count"] == 1
     assert updated_detail.json()["share_count"] == 1
+    assert updated_detail.json()["effective_share_count"] == 0
     assert updated_detail.json()["lead_count"] == 0
 
     unsupported_event = client.post(
@@ -143,58 +150,127 @@ def test_claim_is_idempotent(client: TestClient):
     assert len(assets) == 1
 
 
-def test_invite_unlock_applies_to_all_invite_contents_for_parent(client: TestClient):
-    first_id = create_and_publish_content(client, unlock_type="invite", unlock_threshold=1, title="邀请解锁资料A")
-    second_id = create_and_publish_content(client, unlock_type="invite", unlock_threshold=1, title="邀请解锁资料B")
+def test_share_does_not_claim_content(client: TestClient):
+    content_id = create_and_publish_content(client)
     client.post(
         "/api/v1/onboarding/profile",
-        json={"open_id": "parent-invite-a", "child_age": 7, "child_grade": "一年级", "concerns": []},
-    )
-    client.post(
-        "/api/v1/onboarding/profile",
-        json={"open_id": "parent-invite-b", "child_age": 7, "child_grade": "一年级", "concerns": []},
+        json={"open_id": "parent-share-only", "child_age": 7, "child_grade": "一年级", "concerns": []},
     )
 
-    claim_a = client.post(f"/api/v1/contents/{first_id}/claim", params={"open_id": "parent-invite-a"})
+    share = client.post(f"/api/v1/contents/{content_id}/share", params={"open_id": "parent-share-only"})
+    assert share.status_code == 200
+
+    detail = client.get(f"/api/v1/contents/{content_id}", params={"open_id": "parent-share-only"})
+    assert detail.status_code == 200
+    assert detail.json()["is_claimed"] is False
+    assert detail.json()["share_count"] == 1
+    assert detail.json()["effective_share_count"] == 0
+
+    assets = client.get("/api/v1/me/assets", params={"open_id": "parent-share-only"})
+    assert assets.status_code == 200
+    assert assets.json() == []
+
+
+def test_invite_unlock_applies_after_real_invitee_login(client: TestClient):
+    first_id = create_and_publish_content(client, unlock_type="invite", unlock_threshold=1, title="邀请解锁资料A")
+    second_id = create_and_publish_content(client, unlock_type="invite", unlock_threshold=1, title="邀请解锁资料B")
+    inviter_headers = auth_header(client, "parent-invite-a")
+    invitee_headers = auth_header(client, "parent-invite-b")
+
+    client.post(
+        "/api/v1/onboarding/profile",
+        headers=inviter_headers,
+        json={"open_id": "unused-a", "child_age": 7, "child_grade": "一年级", "concerns": []},
+    )
+    client.post(
+        "/api/v1/onboarding/profile",
+        headers=invitee_headers,
+        json={"open_id": "unused-b", "child_age": 7, "child_grade": "一年级", "concerns": []},
+    )
+
+    claim_a = client.post(f"/api/v1/contents/{first_id}/claim", headers=inviter_headers)
     assert claim_a.status_code == 200
     assert claim_a.json()["unlocked"] is False
 
-    share_a = client.post(f"/api/v1/contents/{first_id}/share", params={"open_id": "parent-invite-a"})
+    share_a = client.post(f"/api/v1/contents/{first_id}/share", headers=inviter_headers)
     assert share_a.status_code == 200
-    assert share_a.json()["unlocked"] is True
+    assert share_a.json()["unlocked"] is False
 
-    contents_a = client.get("/api/v1/contents", params={"open_id": "parent-invite-a", "age": 7, "grade": "一年级"})
+    before_invite = client.get("/api/v1/contents", headers=inviter_headers, params={"age": 7, "grade": "一年级"})
+    before_by_id = {item["id"]: item for item in before_invite.json()}
+    assert before_by_id[first_id]["is_unlocked"] is False
+    assert before_by_id[second_id]["is_unlocked"] is False
+    assert before_by_id[first_id]["share_count"] == 1
+
+    inviter_id = client.get("/api/v1/me/profile", headers=inviter_headers).json()["user_id"]
+    share_open = client.post(
+        "/api/v1/shares/open",
+        json={"inviter_user_id": inviter_id, "source_content_id": first_id},
+    )
+    assert share_open.status_code == 200
+    assert share_open.json()["recorded"] is True
+
+    after_open = client.get("/api/v1/contents", headers=inviter_headers, params={"age": 7, "grade": "一年级"})
+    after_open_by_id = {item["id"]: item for item in after_open.json()}
+    assert after_open_by_id[first_id]["share_count"] == 1
+    assert after_open_by_id[first_id]["effective_share_count"] == 0
+
+    complete = client.post(
+        "/api/v1/invites/complete",
+        headers=invitee_headers,
+        json={"inviter_user_id": inviter_id, "source_content_id": first_id},
+    )
+    assert complete.status_code == 200
+    assert complete.json()["completed"] is True
+    assert complete.json()["invited_count"] == 1
+
+    contents_a = client.get("/api/v1/contents", headers=inviter_headers, params={"age": 7, "grade": "一年级"})
     by_id_a = {item["id"]: item for item in contents_a.json()}
     assert by_id_a[first_id]["is_unlocked"] is True
+    assert by_id_a[first_id]["share_count"] == 1
+    assert by_id_a[first_id]["effective_share_count"] == 1
     assert by_id_a[second_id]["is_unlocked"] is True
     assert by_id_a[second_id]["is_claimed"] is False
 
-    contents_b = client.get("/api/v1/contents", params={"open_id": "parent-invite-b", "age": 7, "grade": "一年级"})
+    contents_b = client.get("/api/v1/contents", headers=invitee_headers, params={"age": 7, "grade": "一年级"})
     by_id_b = {item["id"]: item for item in contents_b.json()}
     assert by_id_b[first_id]["is_unlocked"] is False
     assert by_id_b[second_id]["is_unlocked"] is False
 
-    download_second_a = client.post(f"/api/v1/contents/{second_id}/download", params={"open_id": "parent-invite-a"})
-    download_second_b = client.post(f"/api/v1/contents/{second_id}/download", params={"open_id": "parent-invite-b"})
+    download_second_a = client.post(f"/api/v1/contents/{second_id}/download", headers=inviter_headers)
+    download_second_b = client.post(f"/api/v1/contents/{second_id}/download", headers=invitee_headers)
     assert download_second_a.status_code == 200
     assert download_second_b.status_code == 403
 
 
-def test_invite_summary_copy_changes_by_invite_count(client: TestClient):
+def test_invite_summary_copy_uses_real_invite_count(client: TestClient):
     content_id = create_and_publish_content(client, unlock_type="invite", unlock_threshold=1)
+    inviter_headers = auth_header(client, "parent-summary")
+    invitee_headers = auth_header(client, "parent-summary-invitee")
     client.post(
         "/api/v1/onboarding/profile",
-        json={"open_id": "parent-summary", "child_age": 7, "child_grade": "一年级", "concerns": []},
+        headers=inviter_headers,
+        json={"open_id": "unused-summary", "child_age": 7, "child_grade": "一年级", "concerns": []},
     )
-    client.post(f"/api/v1/contents/{content_id}/claim", params={"open_id": "parent-summary"})
+    client.post(f"/api/v1/contents/{content_id}/claim", headers=inviter_headers)
 
-    initial = client.get("/api/v1/me/invite-summary", params={"open_id": "parent-summary"})
+    initial = client.get("/api/v1/me/invite-summary", headers=inviter_headers)
     assert initial.status_code == 200
     assert initial.json()["invited_count"] == 0
     assert initial.json()["display_text"] == "已邀请0位家长，仅可领取部分免费资料"
 
-    client.post(f"/api/v1/contents/{content_id}/share", params={"open_id": "parent-summary"})
-    updated = client.get("/api/v1/me/invite-summary", params={"open_id": "parent-summary"})
+    client.post(f"/api/v1/contents/{content_id}/share", headers=inviter_headers)
+    after_share = client.get("/api/v1/me/invite-summary", headers=inviter_headers)
+    assert after_share.status_code == 200
+    assert after_share.json()["invited_count"] == 0
+
+    inviter_id = client.get("/api/v1/me/profile", headers=inviter_headers).json()["user_id"]
+    client.post(
+        "/api/v1/invites/complete",
+        headers=invitee_headers,
+        json={"inviter_user_id": inviter_id, "source_content_id": content_id},
+    )
+    updated = client.get("/api/v1/me/invite-summary", headers=inviter_headers)
     assert updated.status_code == 200
     assert updated.json()["invited_count"] == 1
     assert updated.json()["display_text"] == "已邀请1位家长，可领取全部资料"

@@ -16,10 +16,14 @@ from app.schemas.parent import (
     ContentListItem,
     DownloadResponse,
     EventCreateRequest,
+    InviteCompleteRequest,
+    InviteCompleteResponse,
     InviteSummary,
     MyAsset,
     OnboardingProfileRequest,
     OnboardingProfileResponse,
+    ShareOpenRequest,
+    ShareOpenResponse,
     ShareResponse,
     UpdateUserProfileRequest,
     UserProfileResponse,
@@ -166,6 +170,11 @@ def share_content(
     return ParentService(db).share(open_id, content_id, current_user)
 
 
+@router.post("/shares/open", response_model=ShareOpenResponse)
+def record_share_open(payload: ShareOpenRequest, db: Session = Depends(get_db)):
+    return ParentService(db).record_share_open(payload)
+
+
 @router.get("/me/assets", response_model=list[MyAsset])
 def my_assets(
     open_id: str | None = None,
@@ -182,6 +191,15 @@ def invite_summary(
     current_user: User | None = Depends(get_optional_user),
 ):
     return ParentService(db).invite_summary(open_id, current_user)
+
+
+@router.post("/invites/complete", response_model=InviteCompleteResponse)
+def complete_invite(
+    payload: InviteCompleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return ParentService(db).complete_invite(payload, current_user)
 
 
 @router.post("/events", status_code=204)

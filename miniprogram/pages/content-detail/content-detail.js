@@ -39,6 +39,18 @@ Page({
     this.loadDetail()
   },
 
+  onShareAppMessage() {
+    const user = app.globalData.user || wx.getStorageSync('user') || {}
+    const inviterQuery = user.id ? `&inviter_user_id=${user.id}` : ''
+    const sourceQuery = `&source_content_id=${this.data.contentId}`
+    const path = `/pages/content-detail/content-detail?id=${this.data.contentId}${inviterQuery}${sourceQuery}`
+    console.log('分享链接:', path)
+    return {
+      title: this.data.detail.title || '给孩子领取一份学习资料',
+      path
+    }
+  },
+
   loadDetail() {
     this.setData({ loading: true })
     getContentDetail(this.data.contentId)
@@ -94,10 +106,10 @@ Page({
 
   unlockCopy(detail) {
     const state = this.primaryActionState(detail)
-    if (state === 'claimed') return '资料已保存到“我的资料”，可直接下载或继续分享给其他家长。'
+    if (state === 'claimed') return '资料已保存到“我的资料”，可以直接下载，也可以继续分享给其他家长。'
     if (state === 'claimable') return '已满足领取条件，点击免费领取后保存到“我的资料”。'
     const rest = Math.max((detail.unlock_threshold || 1) - (detail.user_share_count || 0), 1)
-    return `还需邀请${rest}位家长解锁完整资料。`
+    return `还需邀请${rest}位家长登录小程序，即可解锁完整资料。`
   },
 
   primaryActionText(detail) {
@@ -115,9 +127,7 @@ Page({
     }
     if (state === 'claimable') {
       this.claim()
-      return
     }
-    this.share()
   },
 
   claim() {
@@ -154,16 +164,11 @@ Page({
       })
   },
 
-  share() {
+  recordShareClick() {
+    if (this.data.sharing) return
     this.setData({ sharing: true })
     shareContent(this.data.contentId)
-      .then((res) => {
-        wx.showToast({ title: res.unlocked ? '已解锁' : '已分享', icon: 'success' })
-        this.loadDetail()
-      })
-      .catch((error) => {
-        wx.showToast({ title: error.message || '分享失败', icon: 'none' })
-      })
+      .catch(() => {})
       .finally(() => {
         this.setData({ sharing: false })
       })
