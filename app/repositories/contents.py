@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy import and_, delete, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import Content, ContentEvent, ContentTag, InviteRecord, UserContentAsset
@@ -14,8 +14,10 @@ class ContentRepository:
     def get(self, content_id: int) -> Content | None:
         return self.db.get(Content, content_id)
 
-    def list_all(self) -> list[Content]:
+    def list_all(self, is_published: bool | None = None) -> list[Content]:
         stmt = select(Content).order_by(desc(Content.updated_at))
+        if is_published is not None:
+            stmt = stmt.where(Content.is_published.is_(is_published))
         return list(self.db.scalars(stmt))
 
     def list_published(
@@ -67,6 +69,15 @@ class ContentRepository:
             self.replace_tags(content, tags)
         self.db.flush()
         return content
+
+    def delete(self, content: Content) -> None:
+        content_id = content.id
+        self.db.execute(delete(ContentEvent).where(ContentEvent.content_id == content_id))
+        self.db.execute(delete(UserContentAsset).where(UserContentAsset.content_id == content_id))
+        self.db.execute(delete(InviteRecord).where(InviteRecord.source_content_id == content_id))
+        self.db.execute(delete(ContentTag).where(ContentTag.content_id == content_id))
+        self.db.delete(content)
+        self.db.flush()
 
     def replace_tags(self, content: Content, tags: list[str]) -> None:
         self.db.query(ContentTag).filter(ContentTag.content_id == content.id).delete()
@@ -127,7 +138,12 @@ class ContentRepository:
         )
         return list(self.db.execute(stmt).all())
 
-    def content_metrics(self, content_ids: list[int]) -> dict[int, dict[str, int]]:
+    def content_metrics(
+        self,
+        content_ids: list[int],
+        start_at: datetime | None = None,
+        end_at: datetime | None = None,
+    ) -> dict[int, dict[str, int]]:
         if not content_ids:
             return {}
         metrics = {
@@ -139,6 +155,7 @@ class ContentRepository:
             .where(UserContentAsset.content_id.in_(content_ids))
             .group_by(UserContentAsset.content_id)
         )
+        claim_stmt = self._where_between(claim_stmt, UserContentAsset.created_at, start_at, end_at)
         for content_id, count in self.db.execute(claim_stmt).all():
             metrics[content_id]["claim_count"] = count
 
@@ -147,9 +164,20 @@ class ContentRepository:
             .where(ContentEvent.content_id.in_(content_ids), ContentEvent.event_type == "share")
             .group_by(ContentEvent.content_id)
         )
+        share_stmt = self._where_between(share_stmt, ContentEvent.created_at, start_at, end_at)
         for content_id, count in self.db.execute(share_stmt).all():
             if content_id is not None:
                 metrics[content_id]["share_count"] = count
+
+        lead_stmt = (
+            select(ContentEvent.content_id, func.count(func.distinct(ContentEvent.user_id)))
+            .where(ContentEvent.content_id.in_(content_ids), ContentEvent.event_type == "lead")
+            .group_by(ContentEvent.content_id)
+        )
+        lead_stmt = self._where_between(lead_stmt, ContentEvent.created_at, start_at, end_at)
+        for content_id, count in self.db.execute(lead_stmt).all():
+            if content_id is not None:
+                metrics[content_id]["lead_count"] = count
 
         effective_share_stmt = (
             select(InviteRecord.source_content_id, func.count(func.distinct(InviteRecord.invitee_user_id)))
@@ -159,6 +187,7 @@ class ContentRepository:
             )
             .group_by(InviteRecord.source_content_id)
         )
+        effective_share_stmt = self._where_between(effective_share_stmt, InviteRecord.completed_at, start_at, end_at)
         for content_id, count in self.db.execute(effective_share_stmt).all():
             if content_id is not None:
                 metrics[content_id]["effective_share_count"] = count
@@ -224,34 +253,41 @@ class ContentRepository:
         if rows:
             self.db.flush()
 
-    def event_count(self, event_type: str, since: datetime) -> int:
-        return self.db.scalar(
-            select(func.count(ContentEvent.id)).where(ContentEvent.event_type == event_type, ContentEvent.created_at >= since)
-        ) or 0
+    def event_count(self, event_type: str, start_at: datetime, end_at: datetime | None = None) -> int:
+        stmt = select(func.count(ContentEvent.id)).where(ContentEvent.event_type == event_type)
+        stmt = self._where_between(stmt, ContentEvent.created_at, start_at, end_at)
+        return self.db.scalar(stmt) or 0
 
-    def active_user_count(self, since: datetime) -> int:
-        return self.db.scalar(
-            select(func.count(func.distinct(ContentEvent.user_id))).where(ContentEvent.created_at >= since)
-        ) or 0
+    def active_user_count(self, start_at: datetime, end_at: datetime | None = None) -> int:
+        stmt = select(func.count(func.distinct(ContentEvent.user_id)))
+        stmt = self._where_between(stmt, ContentEvent.created_at, start_at, end_at)
+        return self.db.scalar(stmt) or 0
 
-    def preference_counts(self, field, since: datetime, limit: int = 10) -> list[tuple[str, int]]:
+    def preference_counts(
+        self,
+        field,
+        start_at: datetime,
+        end_at: datetime | None = None,
+        limit: int = 10,
+    ) -> list[tuple[str, int]]:
         stmt = (
             select(field, func.count(ContentEvent.id))
             .join(ContentEvent, ContentEvent.content_id == Content.id)
-            .where(ContentEvent.created_at >= since, field.is_not(None))
+            .where(field.is_not(None))
             .group_by(field)
             .order_by(desc(func.count(ContentEvent.id)))
             .limit(limit)
         )
+        stmt = self._where_between(stmt, ContentEvent.created_at, start_at, end_at)
         return [(str(key), count) for key, count in self.db.execute(stmt).all()]
 
-    def age_counts(self, since: datetime, limit: int = 10) -> list[tuple[str, int]]:
+    def age_counts(self, start_at: datetime, end_at: datetime | None = None, limit: int = 10) -> list[tuple[str, int]]:
         stmt = (
             select(ContentEvent.properties, func.count(ContentEvent.id))
-            .where(ContentEvent.created_at >= since)
             .group_by(ContentEvent.properties)
             .limit(200)
         )
+        stmt = self._where_between(stmt, ContentEvent.created_at, start_at, end_at)
         counts: dict[str, int] = {}
         for props, count in self.db.execute(stmt).all():
             age = (props or {}).get("age")
@@ -262,3 +298,11 @@ class ContentRepository:
     @staticmethod
     def since_days(days: int) -> datetime:
         return now() - timedelta(days=days)
+
+    @staticmethod
+    def _where_between(stmt, column, start_at: datetime | None, end_at: datetime | None):
+        if start_at is not None:
+            stmt = stmt.where(column >= start_at)
+        if end_at is not None:
+            stmt = stmt.where(column < end_at)
+        return stmt

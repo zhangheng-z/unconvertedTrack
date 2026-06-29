@@ -1,4 +1,9 @@
+from datetime import datetime
+
 from fastapi.testclient import TestClient
+from sqlalchemy import select, update
+
+from app.models import ContentEvent, User, UserContentAsset
 
 
 def auth_header(client: TestClient, code: str) -> dict[str, str]:
@@ -110,6 +115,100 @@ def test_parent_mvp_loop_and_admin_metrics(client: TestClient):
     assert dashboard.json()["claimed"] == 1
     assert dashboard.json()["downloaded"] == 1
     assert dashboard.json()["shared"] == 1
+
+
+def test_admin_metrics_respect_date_range(client: TestClient, db_session):
+    content_id = create_and_publish_content(client)
+    client.post(
+        "/api/v1/onboarding/profile",
+        json={
+            "open_id": "parent-date-range",
+            "child_age": 7,
+            "child_grade": "涓€骞寸骇",
+            "concerns": ["璇嗗瓧闃呰"],
+        },
+    )
+    client.post(f"/api/v1/contents/{content_id}/claim", params={"open_id": "parent-date-range"})
+    client.post(f"/api/v1/contents/{content_id}/share", params={"open_id": "parent-date-range"})
+
+    outside_range = datetime(2024, 5, 20, 12, 0, 0)
+    db_session.execute(update(ContentEvent).values(created_at=outside_range))
+    db_session.execute(update(UserContentAsset).values(created_at=outside_range))
+    db_session.commit()
+
+    params = {"start_date": "2024-05-28", "end_date": "2024-06-03"}
+    dashboard = client.get("/admin/dashboard/overview", params=params)
+    assert dashboard.status_code == 200
+    assert dashboard.json()["claimed"] == 0
+    assert dashboard.json()["shared"] == 0
+
+    contents = client.get("/admin/contents", params=params)
+    assert contents.status_code == 200
+    assert contents.json()[0]["claim_count"] == 0
+    assert contents.json()[0]["share_count"] == 0
+
+
+def test_admin_user_profiles_include_intent_ranking(client: TestClient, db_session):
+    content_id = create_and_publish_content(client)
+    client.post(
+        "/api/v1/onboarding/profile",
+        json={
+            "open_id": "parent-high-intent",
+            "nickname": "高意向家长",
+            "source_channel": "douyin",
+            "child_age": 7,
+            "child_grade": "一年级",
+            "concerns": ["专注力"],
+        },
+    )
+    client.post(
+        "/api/v1/onboarding/profile",
+        json={
+            "open_id": "parent-low-intent",
+            "nickname": "普通家长",
+            "source_channel": "wechat",
+            "child_age": 6,
+            "child_grade": "一年级",
+            "concerns": ["识字阅读"],
+        },
+    )
+    client.post(f"/api/v1/contents/{content_id}/claim", params={"open_id": "parent-high-intent"})
+    client.post(f"/api/v1/contents/{content_id}/download", params={"open_id": "parent-high-intent"})
+    client.post(f"/api/v1/contents/{content_id}/share", params={"open_id": "parent-high-intent"})
+
+    high_user_id = db_session.scalar(select(User.id).where(User.open_id == "parent-high-intent"))
+    db_session.add(ContentEvent(user_id=high_user_id, event_type="assessment", content_id=content_id, properties={}))
+    db_session.add(ContentEvent(user_id=high_user_id, event_type="camp_signup", content_id=content_id, properties={}))
+    db_session.commit()
+
+    response = client.get("/admin/users")
+    assert response.status_code == 200
+    rows = response.json()
+    assert rows[0]["open_id"] == "parent-high-intent"
+    assert rows[0]["claim_count"] == 1
+    assert rows[0]["download_count"] == 1
+    assert rows[0]["share_count"] == 1
+    assert rows[0]["assessment_count"] == 1
+    assert rows[0]["camp_count"] == 1
+    assert rows[0]["intent_level"] == "high"
+    assert rows[0]["recommended_action"] == "分配顾问跟进"
+
+
+def test_admin_can_delete_content_with_related_activity(client: TestClient):
+    content_id = create_and_publish_content(client)
+    client.post(
+        "/api/v1/onboarding/profile",
+        json={"open_id": "parent-delete-content", "child_age": 7, "child_grade": "一年级", "concerns": []},
+    )
+    client.post(f"/api/v1/contents/{content_id}/claim", params={"open_id": "parent-delete-content"})
+    client.post(f"/api/v1/contents/{content_id}/share", params={"open_id": "parent-delete-content"})
+
+    response = client.delete(f"/admin/contents/{content_id}")
+    assert response.status_code == 204
+
+    contents = client.get("/admin/contents")
+    assert contents.status_code == 200
+    assert contents.json() == []
 
 
 def test_ai_topic_suggestion_uses_recent_preferences(client: TestClient):

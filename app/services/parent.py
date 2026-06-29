@@ -187,7 +187,8 @@ class ParentService:
         return InviteSummary(invited_count=invited_count, unlockable_count=unlockable_count, display_text=display_text)
 
     def record_event(self, open_id: str | None, event_type: str, content_id: int | None, properties: dict, current_user: User | None = None) -> None:
-        if event_type not in {"claim", "share", "download"}:
+        supported_events = {"claim", "share", "download", "assessment", "assessment_complete", "camp", "camp_signup", "training", "lead"}
+        if event_type not in supported_events:
             raise HTTPException(status_code=400, detail="unsupported content event type")
         user = current_user or self._require_user(open_id)
         child = user.children[0] if user.children else None

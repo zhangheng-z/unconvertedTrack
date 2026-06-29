@@ -30,8 +30,8 @@
     }
   },
   "compileType": "miniprogram",
-  "libVersion": "latest",
-  "appid": "wx2eb8194eb780da36",
+  "libVersion": "3.15.3",
+  "appid": "wx5328751ca9cb47f1",
   "projectname": "unconverted-track-miniprogram",
   "condition": {},
   "simulatorPluginLibVersion": {},

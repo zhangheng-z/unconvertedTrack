@@ -3,69 +3,529 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>未转化用户内容后台</title>
+    <title>运营后台</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="topbar">
-        <div>
-          <p class="eyebrow">运营后台</p>
-          <h1>内容管理工作台</h1>
-        </div>
-        <button id="refreshButton">刷新</button>
-      </section>
+    <div class="admin-shell">
+      <aside class="sidebar" aria-label="后台导航">
+        <a class="brand" href="#dashboard" data-view-link="dashboard" aria-label="运营后台首页">
+          <span class="brand-mark">运</span>
+        </a>
+        <nav class="nav-list">
+          <a class="nav-item is-active" href="#dashboard" data-view-link="dashboard"><span>数据看板</span></a>
+          <a class="nav-item" href="#users" data-view-link="users"><span>用户画像</span></a>
+          <a class="nav-item" href="#contents" data-view-link="contents"><span>内容管理</span></a>
+          <a class="nav-item" href="#topics" data-view-link="ai"><span>AI选题推荐</span></a>
+          <a class="nav-item" href="#ai" data-view-link="ai"><span>AI内容生成</span></a>
+          <a class="nav-item" href="#ai-logs" data-view-link="aiLogs"><span>AI调用日志</span></a>
+          <a class="nav-item" href="#review" data-view-link="review"><span>素材审核</span></a>
+          <a class="nav-item" href="#report" data-view-link="dashboard"><span>效果复盘</span></a>
+          <a class="nav-item" href="#leads" data-view-link="dashboard"><span>线索管理</span></a>
+        </nav>
+      </aside>
 
-      <section class="metrics" id="metrics"></section>
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">运营后台</p>
+            <h1 id="pageTitle">数据看板</h1>
+          </div>
+          <div class="top-actions">
+            <div class="date-filter" aria-label="数据时间范围">
+              <select id="datePreset" aria-label="快捷时间范围">
+                <option value="today">今日</option>
+                <option value="7" selected>近7天</option>
+                <option value="30">近30天</option>
+                <option value="month">本月</option>
+                <option value="custom">自定义</option>
+              </select>
+              <input id="startDate" type="date" aria-label="开始日期" />
+              <span>~</span>
+              <input id="endDate" type="date" aria-label="结束日期" />
+            </div>
+            <button class="icon-button" id="refreshButton" type="button" aria-label="刷新">刷</button>
+            <div class="admin-profile">
+              <span class="avatar">管</span>
+              <span>运营主管</span>
+            </div>
+          </div>
+        </header>
 
-      <section class="grid">
-        <form class="panel form-panel" id="contentForm">
-          <h2>新增资料</h2>
-          <label>标题<input name="title" required placeholder="一年级识字阅读自测表" /></label>
-          <div class="two-cols">
-            <label>类型
+        <section class="view is-active" id="dashboardView" data-view="dashboard" aria-labelledby="pageTitle">
+          <div class="metrics" id="metrics"></div>
+
+          <div class="dashboard-grid">
+            <section class="panel preference-panel">
+              <div class="panel-head">
+                <h2>热门偏好</h2>
+                <span class="hint">来自用户画像与领取行为</span>
+              </div>
+              <div class="preference-groups" id="preferenceGroups"></div>
+            </section>
+
+            <section class="panel ranking-panel">
+              <div class="panel-head">
+                <h2>内容排行</h2>
+                <a href="#contents" data-view-link="contents">更多</a>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>内容</th>
+                      <th>类型</th>
+                      <th>领取</th>
+                      <th>分享</th>
+                      <th>线索</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rankingRows"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <div class="bottom-grid">
+            <section class="panel follow-panel">
+              <div class="panel-head">
+                <h2>推荐跟进用户</h2>
+                <span class="hint">优先触达高意向家长</span>
+              </div>
+              <div class="follow-card">
+                <div class="parent-avatar" aria-hidden="true">家</div>
+                <div class="parent-summary">
+                  <h3 id="followUserName">7岁孩子家长</h3>
+                  <p id="followUserProfile">江苏 · 一年级</p>
+                  <div class="mini-tags">
+                    <span class="tag">活跃用户</span>
+                    <span class="tag orange">高意向</span>
+                  </div>
+                </div>
+                <div class="follow-detail">
+                  <div class="detail-row"><span>偏好标签</span><strong id="followTags">语文 · 识字 · PDF</strong></div>
+                  <div class="detail-row"><span>最近行为</span><strong id="followAction">下载 3 份资料 · 完成语文测评</strong></div>
+                  <div class="detail-row"><span>AI建议</span><strong class="green-text" id="followAdvice">推送语文训练营 + 识字提升计划</strong></div>
+                  <div class="detail-row"><span>最近访问</span><strong>2024-06-03 10:24</strong></div>
+                </div>
+              </div>
+              <div class="follow-actions">
+                <button class="secondary" type="button">查看详情</button>
+                <button class="secondary" type="button">发送资料</button>
+                <button class="secondary" type="button">推送测评</button>
+                <button class="primary compact" type="button">分配跟进</button>
+              </div>
+            </section>
+
+            <section class="panel insight-panel">
+              <div class="panel-head">
+                <h2>AI洞察</h2>
+                <span class="hint">用数据驱动下一次内容生产</span>
+              </div>
+              <div class="insight-content">
+                <div class="ai-visual" aria-hidden="true">
+                  <div class="bot-face">
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <div class="chart-bars">
+                    <i></i>
+                    <i></i>
+                    <i></i>
+                  </div>
+                </div>
+                <div>
+                  <h3 id="insightTitle">近7天，7岁用户对语文识字内容兴趣上升。</h3>
+                  <ul class="insight-list" id="insightList"></ul>
+                </div>
+              </div>
+              <div class="quick-actions">
+                <button class="primary" type="button" data-view-link="ai">生成选题</button>
+                <button class="blue" type="button">生成PDF</button>
+                <button class="purple-btn" type="button">生成图片</button>
+                <button class="orange-btn" type="button">生成测评</button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="usersView" data-view="users">
+          <div class="users-grid">
+            <section class="panel user-ranking-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>推荐跟进榜单</h2>
+                  <span class="hint">按当前时间范围内的领取、下载、分享、测评、训练营行为排序</span>
+                </div>
+              </div>
+              <div class="follow-ranking" id="followRanking"></div>
+            </section>
+
+            <section class="panel user-table-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>注册用户</h2>
+                  <span class="hint" id="registeredUserCount">0 位用户</span>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="users-table">
+                  <thead>
+                    <tr>
+                      <th>用户</th>
+                      <th>孩子</th>
+                      <th>来源</th>
+                      <th>标签</th>
+                      <th>行为数据</th>
+                      <th>推荐动作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="userRows"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="aiView" data-view="ai">
+          <div class="ai-grid">
+            <form class="panel generator-panel" id="contentForm">
+              <div class="panel-head">
+                <h2>生成条件</h2>
+                <span class="hint">创建后自动发布</span>
+              </div>
+
+              <label class="field full-field">
+                <span>选题标题</span>
+                <input name="title" required value="一年级孩子识字少，每天怎么练？" />
+              </label>
+
+              <div class="form-row">
+                <label class="field">
+                  <span>年龄</span>
+                  <input name="target_age_min" type="number" min="0" max="18" value="7" />
+                </label>
+                <label class="field">
+                  <span>年级</span>
+                  <select name="grade">
+                    <option value="一年级">一年级</option>
+                    <option value="二年级">二年级</option>
+                    <option value="幼小衔接">幼小衔接</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>学科</span>
+                  <select name="subject">
+                    <option value="语文">语文</option>
+                    <option value="数学">数学</option>
+                    <option value="英语">英语</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>问题</span>
+                  <select name="problem">
+                    <option value="识字少">识字少</option>
+                    <option value="阅读差">阅读差</option>
+                    <option value="计算慢">计算慢</option>
+                    <option value="作业拖拉">作业拖拉</option>
+                  </select>
+                </label>
+              </div>
+
+              <fieldset class="choice-group">
+                <legend>内容目标</legend>
+                <label><input type="checkbox" checked /> 提升领取率</label>
+                <label><input type="checkbox" /> 提升分享</label>
+                <label><input type="checkbox" checked /> 引导测评</label>
+                <label><input type="checkbox" /> 引导训练营</label>
+              </fieldset>
+
+              <fieldset class="content-types">
+                <legend>内容类型</legend>
+                <label><input name="content_type" type="radio" value="pdf" checked /><span>PDF资料</span></label>
+                <label><input name="content_type" type="radio" value="image" /><span>图片卡片</span></label>
+                <label><input name="content_type" type="radio" value="assessment" /><span>测评题</span></label>
+                <label><input name="content_type" type="radio" value="camp" /><span>打卡任务</span></label>
+                <label><input name="content_type" type="radio" value="video" /><span>视频脚本</span></label>
+              </fieldset>
+
+              <div class="form-row two">
+                <label class="field">
+                  <span>最大年龄</span>
+                  <input name="target_age_max" type="number" min="0" max="18" value="8" />
+                </label>
+                <label class="field">
+                  <span>解锁方式</span>
+                  <select name="unlock_type">
+                    <option value="free">免费领取</option>
+                    <option value="invite">邀请解锁</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="form-row two">
+                <label class="field">
+                  <span>邀请人数</span>
+                  <input name="unlock_threshold" type="number" min="0" max="100" value="0" />
+                </label>
+                <label class="field">
+                  <span>下一步动作</span>
+                  <input name="next_action" placeholder="测评 / 训练营 / 领取方案" value="5分钟识字测评" />
+                </label>
+              </div>
+
+              <label class="field full-field">
+                <span>简介</span>
+                <textarea name="summary" rows="3">帮助家长判断孩子识字量是否不足，并给出每天10分钟的练习方法。</textarea>
+              </label>
+
+              <label class="field full-field">
+                <span>参考资料文字（可选）</span>
+                <textarea name="reference_text" rows="3" placeholder="可粘贴教研内容、活动要求或家长反馈"></textarea>
+              </label>
+
+              <label class="field full-field">
+                <span>上传资料文件</span>
+                <input name="file" type="file" />
+              </label>
+              <div class="form-row two">
+                <label class="field">
+                  <span>Image Pages</span>
+                  <select name="page_count">
+                    <option value="1">1 page</option>
+                    <option value="2" selected>2 pages</option>
+                    <option value="3">3 pages</option>
+                    <option value="4">4 pages</option>
+                  </select>
+                </label>
+              </div>
+              <label class="check-line">
+                <input name="match_reference_style" type="checkbox" checked />
+                <span>参考上传PDF的结构和版式生成</span>
+              </label>
+
+              <button class="primary" type="submit">AI生成内容</button>
+              <p class="form-message" id="formMessage" role="status"></p>
+            </form>
+
+            <section class="panel result-panel">
+              <div class="panel-head">
+                <h2>生成结果</h2>
+                <span class="status-pill">已生成</span>
+              </div>
+              <div class="generated-card">
+                <span class="small-label">选题标题</span>
+                <h3 id="generatedTitle">一年级孩子识字少，每天怎么练？</h3>
+                <div class="tag-row" id="generatedTags"></div>
+                <div class="content-meta" id="generatedSource" hidden></div>
+                <div class="content-meta" id="generatedTokenUsage" hidden></div>
+                <div class="generation-steps" id="generatedSteps" hidden></div>
+                <a class="generated-file-link" id="generatedPdfLink" href="#" target="_blank" rel="noreferrer" hidden>查看生成PDF</a>
+              </div>
+              <div class="result-columns">
+                <div class="outline-box">
+                  <h3>内容大纲</h3>
+                  <ol id="generatedOutline">
+                    <li>如何判断孩子识字量是否不足</li>
+                    <li>每天10分钟识字训练方法</li>
+                    <li>7天识字训练计划表</li>
+                    <li>家长陪练注意事项与常见问题</li>
+                  </ol>
+                </div>
+                <div class="outline-box">
+                  <h3>绑定转化入口</h3>
+                  <div class="entry-item is-selected">
+                    <strong>5分钟识字测评</strong>
+                    <span>快速了解孩子识字水平</span>
+                  </div>
+                  <div class="entry-item is-selected">
+                    <strong>7天语文训练营</strong>
+                    <span>每天10分钟，打好语文基础</span>
+                  </div>
+                  <div class="entry-item">
+                    <strong>老师1对1诊断</strong>
+                    <span>获取个性化提升建议</span>
+                  </div>
+                </div>
+              </div>
+              <div class="action-row">
+                <button type="button" class="secondary">重新生成</button>
+                <button type="button" class="secondary">编辑内容</button>
+                <button type="button" class="secondary">生成封面</button>
+                <button type="submit" form="contentForm" class="blue" id="generatePdfButton">生成PDF</button>
+                <button type="button" class="primary compact" id="publishGeneratedContent" disabled>提交素材审核</button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="contentsView" data-view="contents">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>内容管理</h2>
+                <span class="hint" id="contentCount">0 条内容</span>
+              </div>
+              <button class="primary compact" id="openContentModal" type="button">上传本地文件</button>
+            </div>
+            <div class="content-list" id="contentList"></div>
+          </section>
+        </section>
+
+        <section class="view" id="aiLogsView" data-view="aiLogs">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>AI调用日志</h2>
+                <span class="hint" id="aiLogCount">0 条调用记录</span>
+              </div>
+              <div class="log-filters">
+                <input id="aiLogRequestId" type="search" placeholder="Request ID" />
+                <select id="aiLogStatus">
+                  <option value="">全部状态</option>
+                  <option value="success">success</option>
+                  <option value="failed">failed</option>
+                </select>
+                <button class="secondary compact" id="aiLogSearchButton" type="button">查询</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="ai-log-table">
+                <thead>
+                  <tr>
+                    <th>调用时间</th>
+                    <th>阶段名称</th>
+                    <th>Request ID</th>
+                    <th>模型</th>
+                    <th>状态</th>
+                    <th>Token</th>
+                    <th>耗时</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="aiLogRows"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="reviewView" data-view="review">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>素材审核</h2>
+                <span class="hint" id="reviewCount">0 条待审核素材</span>
+              </div>
+              <span class="hint">AI生成内容需审核后才会进入内容管理</span>
+            </div>
+            <div class="content-list" id="reviewList"></div>
+          </section>
+        </section>
+      </main>
+
+      <div class="modal-backdrop" id="contentModal" hidden>
+        <form class="modal-card" id="uploadContentForm">
+          <div class="modal-head">
+            <div>
+              <h2 id="contentModalTitle">上传本地文件</h2>
+              <span class="hint">支持资料文件上传，并维护内容基础信息</span>
+            </div>
+            <button class="icon-button" id="closeContentModal" type="button" aria-label="关闭">×</button>
+          </div>
+          <input name="content_id" type="hidden" />
+          <div class="form-row two">
+            <label class="field">
+              <span>内容标题</span>
+              <input name="title" required placeholder="一年级识字阅读自测表" />
+            </label>
+            <label class="field">
+              <span>内容类型</span>
               <select name="content_type">
-                <option value="pdf">PDF</option>
-                <option value="image">图片</option>
+                <option value="pdf">PDF资料</option>
+                <option value="image">图片卡片</option>
                 <option value="video">视频</option>
-                <option value="assessment">测评</option>
+                <option value="assessment">测评题</option>
                 <option value="camp">训练营</option>
               </select>
             </label>
-            <label>学科<input name="subject" placeholder="语文" /></label>
           </div>
-          <div class="two-cols">
-            <label>问题<input name="problem" placeholder="识字阅读" /></label>
-            <label>年级<input name="grade" placeholder="一年级" /></label>
+          <div class="form-row three">
+            <label class="field">
+              <span>学科</span>
+              <input name="subject" placeholder="语文" />
+            </label>
+            <label class="field">
+              <span>问题</span>
+              <input name="problem" placeholder="识字阅读" />
+            </label>
+            <label class="field">
+              <span>年级</span>
+              <input name="grade" placeholder="一年级" />
+            </label>
           </div>
-          <div class="two-cols">
-            <label>最小年龄<input name="target_age_min" type="number" min="0" max="18" value="6" /></label>
-            <label>最大年龄<input name="target_age_max" type="number" min="0" max="18" value="8" /></label>
-          </div>
-          <div class="two-cols">
-            <label>解锁方式
+          <div class="form-row two">
+            <label class="field">
+              <span>解锁方式</span>
               <select name="unlock_type">
                 <option value="free">免费领取</option>
                 <option value="invite">邀请解锁</option>
               </select>
             </label>
-            <label>邀请人数<input name="unlock_threshold" type="number" min="0" max="100" value="0" /></label>
+            <label class="field">
+              <span>邀请人数</span>
+              <input name="unlock_threshold" type="number" min="0" max="100" value="0" />
+            </label>
           </div>
-          <label>简介<textarea name="summary" rows="3" placeholder="帮助家长快速判断孩子学习情况"></textarea></label>
-          <label>下一步动作<input name="next_action" placeholder="测评 / 训练营 / 领取方案" /></label>
-          <label>上传资料文件<input name="file" type="file" /></label>
-          <button class="primary" type="submit">创建并发布</button>
+          <label class="field full-field">
+            <span>简介</span>
+            <textarea name="summary" rows="3" placeholder="帮助家长快速判断孩子学习情况"></textarea>
+          </label>
+          <label class="field full-field">
+            <span>下一步动作</span>
+            <input name="next_action" placeholder="测评 / 训练营 / 领取方案" />
+          </label>
+          <label class="field full-field">
+            <span>本地文件</span>
+            <input name="file" type="file" />
+          </label>
+          <p class="form-message" id="uploadContentMessage" role="status"></p>
+          <div class="modal-actions">
+            <button class="secondary" id="cancelContentModal" type="button">取消</button>
+            <button class="primary compact" type="submit">保存并发布</button>
+          </div>
         </form>
+      </div>
 
-        <section class="panel">
-          <div class="panel-head">
-            <h2>内容列表</h2>
-            <span id="contentCount"></span>
+      <div class="modal-backdrop" id="aiLogModal" hidden>
+        <section class="modal-card log-modal-card">
+          <div class="modal-head">
+            <div>
+              <h2 id="aiLogModalTitle">AI调用详情</h2>
+              <span class="hint" id="aiLogModalMeta"></span>
+            </div>
+            <button class="icon-button" id="closeAiLogModal" type="button" aria-label="关闭">×</button>
           </div>
-          <div class="content-list" id="contentList"></div>
+          <div class="log-detail-grid">
+            <section class="log-detail-panel">
+              <h3>请求 Payload</h3>
+              <pre><code id="aiLogRequestPayload"></code></pre>
+            </section>
+            <section class="log-detail-panel">
+              <h3>响应 Payload</h3>
+              <pre><code id="aiLogResponsePayload"></code></pre>
+            </section>
+            <section class="log-detail-panel">
+              <h3>完整提示词</h3>
+              <pre><code id="aiLogPromptText"></code></pre>
+            </section>
+            <section class="log-detail-panel">
+              <h3>完整回答</h3>
+              <pre><code id="aiLogResponseText"></code></pre>
+            </section>
+          </div>
         </section>
-      </section>
-    </main>
+      </div>
+    </div>
     <script src="./app.js"></script>
   </body>
 </html>

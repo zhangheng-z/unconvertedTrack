@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     jwt_expire_days: int = 30
     share_unlock_threshold: int = 1
     ai_topic_window_days: int = 7
+    vectorengine_base_url: str = "https://api.vectorengine.ai"
+    vectorengine_api_key: str = ""
+    ai_text_model: str = "gpt5.5"
+    ai_image_model: str = "gpt-image-2"
+    ai_generation_timeout: int = 60
+    ai_image_generation_timeout: int = 180
+    ai_image_pdf_max_pages: int = 12
 
     @property
     def database_url(self) -> str:

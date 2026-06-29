@@ -1,13 +1,21 @@
 from pathlib import Path
+from datetime import date
+from dataclasses import asdict
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
 from app.schemas.admin import (
+    AiImagePdfGenerateRequest,
+    AiImagePdfGenerateResponse,
+    AiModelCallLogDetail,
+    AiModelCallLogListItem,
+    AiPdfGenerateRequest,
     AiTopicSuggestionResponse,
+    AdminUserProfileResponse,
     ContentAdminResponse,
     ContentCreateRequest,
     ContentUpdateRequest,
@@ -16,23 +24,46 @@ from app.schemas.admin import (
     PublishRequest,
 )
 from app.services.admin import AdminService
+from app.tasks.generators import ImagePdfGenerationAgent, PdfGenerationInput
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/dashboard/overview", response_model=DashboardOverview)
-def dashboard(db: Session = Depends(get_db)):
-    return AdminService(db).dashboard()
+def dashboard(
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    return AdminService(db).dashboard(start_date, end_date)
 
 
 @router.get("/preferences", response_model=PreferenceOverview)
-def preferences(db: Session = Depends(get_db)):
-    return AdminService(db).preferences()
+def preferences(
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    return AdminService(db).preferences(start_date, end_date)
 
 
 @router.get("/contents", response_model=list[ContentAdminResponse])
-def list_admin_contents(db: Session = Depends(get_db)):
-    return AdminService(db).list_contents()
+def list_admin_contents(
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    is_published: bool | None = Query(default=True),
+    db: Session = Depends(get_db),
+):
+    return AdminService(db).list_contents(start_date, end_date, is_published)
+
+
+@router.get("/users", response_model=list[AdminUserProfileResponse])
+def list_admin_users(
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    return AdminService(db).user_profiles(start_date, end_date)
 
 
 @router.post("/contents", response_model=ContentAdminResponse)
@@ -66,6 +97,50 @@ def publish_content(content_id: int, payload: PublishRequest, db: Session = Depe
     return AdminService(db).publish_content(content_id, payload.is_published)
 
 
+@router.delete("/contents/{content_id}", status_code=204)
+def delete_content(content_id: int, db: Session = Depends(get_db)):
+    AdminService(db).delete_content(content_id)
+
+
+@router.post("/ai/generate/image-pdf", response_model=AiImagePdfGenerateResponse)
+def generate_image_pdf_content(payload: AiImagePdfGenerateRequest):
+    data = payload.model_dump()
+    page_count = data.pop("page_count")
+    result = ImagePdfGenerationAgent().generate(PdfGenerationInput(**data), page_count=page_count)
+    return AiImagePdfGenerateResponse(
+        title=result.title,
+        summary=result.summary,
+        file_path=result.file_path,
+        url=result.url,
+        outline=result.outline,
+        image_paths=result.image_paths,
+        page_count=result.page_count,
+        generation_source=result.generation_source,
+        model=result.model,
+        token_usage=asdict(result.token_usage),
+        generation_error=result.generation_error,
+        request_id=result.request_id,
+        generation_steps=[asdict(step) for step in result.generation_steps],
+    )
+
+
 @router.get("/ai/topic-suggestions", response_model=list[AiTopicSuggestionResponse])
 def topic_suggestions(db: Session = Depends(get_db)):
     return AdminService(db).topic_suggestions()
+
+
+@router.get("/ai/model-call-logs", response_model=list[AiModelCallLogListItem])
+def model_call_logs(
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    request_id: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    return AdminService(db).list_model_call_logs(start_date, end_date, request_id, status, limit)
+
+
+@router.get("/ai/model-call-logs/{log_id}", response_model=AiModelCallLogDetail)
+def model_call_log_detail(log_id: int, db: Session = Depends(get_db)):
+    return AdminService(db).model_call_log_detail(log_id)
