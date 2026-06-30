@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from io import BytesIO
 import logging
 import time
@@ -87,7 +87,7 @@ class ImagePdfGenerationAgent:
             raise HTTPException(status_code=400, detail="title and summary are required")
         self._record_step("validate_input", "ok", "输入校验通过")
 
-        reference, reference_error, reference_images = self._timed_step(
+        reference, reference_error, reference_images, reference_layout_prompt = self._timed_step(
             "reference_context",
             "读取参考资料文字和参考预览",
             lambda: self._reference_context(payload),
@@ -105,7 +105,7 @@ class ImagePdfGenerationAgent:
             relative_image = self._timed_step(
                 f"generate_page_{index}",
                 f"渲染第{index}页连续资料图片",
-                lambda page=page, index=index: self._generate_or_render_page(plan, page, target_page_count, index, reference_images, usage),
+                lambda page=page, index=index: self._generate_or_render_page(plan, page, target_page_count, index, reference_images, reference_layout_prompt, usage),
             )
             self._timed_step(
                 f"image_quality_page_{index}",
@@ -282,26 +282,29 @@ class ImagePdfGenerationAgent:
             global_style="A4连续资料",
         )
 
-    def _reference_context(self, payload: PdfGenerationInput) -> tuple[str, str | None, list[str]]:
+    def _reference_context(self, payload: PdfGenerationInput) -> tuple[str, str | None, list[str], str]:
         helper = PdfGenerationAgent(file_root=self.file_root, base_url=self.base_url, content_generator=self.content_generator)
         try:
             profile = helper._reference_profile(payload)
+            if payload.reference_file_path and not (profile and profile.preview_path):
+                profile = helper._reference_profile(replace(payload, match_reference_style=True)) or profile
             parts = [payload.reference_text.strip()] if payload.reference_text and payload.reference_text.strip() else []
             if profile and profile.text:
                 parts.append(profile.text)
             images = []
-            if payload.match_reference_style and profile and profile.preview_path:
+            if payload.reference_file_path and profile and profile.preview_path:
                 images.append(profile.preview_path)
-            return "\n".join(parts), None, images
+            layout_prompt = self._reference_layout_prompt(profile) if profile else ""
+            return "\n".join(parts), None, images, layout_prompt
         except Exception as exc:
-            return payload.reference_text or "", f"Reference read failed: {exc}", []
+            return payload.reference_text or "", f"Reference read failed: {exc}", [], ""
 
     def _reference_text(self, payload: PdfGenerationInput) -> tuple[str, str | None]:
-        text, error, _ = self._reference_context(payload)
+        text, error, _, _ = self._reference_context(payload)
         return text, error
 
-    def _generate_or_render_page(self, plan: MaterialPlan, page: MaterialPage, page_count: int, page_index: int, reference_images: list[str], usage: TokenUsage) -> str:
-        prompt = self._page_image_prompt(plan, page, page_count)
+    def _generate_or_render_page(self, plan: MaterialPlan, page: MaterialPage, page_count: int, page_index: int, reference_images: list[str], reference_layout_prompt: str, usage: TokenUsage) -> str:
+        prompt = self._page_image_prompt(plan, page, page_count, reference_layout_prompt)
         image_generator = getattr(self.content_generator, "generate_image_bytes", None)
         if not callable(image_generator):
             self._record_step(f"ai_page_fallback_{page_index}", "ok", "AI page generation is unavailable, fallback to template.", metadata={"page_no": page_index})
@@ -328,9 +331,26 @@ class ImagePdfGenerationAgent:
         image.save(target, format="PNG")
         return relative
 
-    def _page_image_prompt(self, plan: MaterialPlan, page: MaterialPage, page_count: int) -> str:
+    @staticmethod
+    def _reference_layout_prompt(profile) -> str:
+        notes = "；".join(profile.layout_notes or [])
+        parts = [
+            "参考PDF版型、布局、样式约束：",
+            f"- 纸张方向：{profile.orientation or '未知'}",
+            f"- 页面尺寸：{profile.page_size or '未知'}",
+            f"- 正文参考起始页：第 {profile.content_start_page} 页",
+        ]
+        if profile.layout_analysis:
+            parts.append(f"- LLM版式分析：{profile.layout_analysis}")
+        if notes:
+            parts.append(f"- 本地/LLM版式备注：{notes}")
+        parts.append("- 生成每一页时都要优先参考上述版式特征；如果参考PDF是双栏、中央分隔线、固定页眉页脚或特定答题线样式，所有生成页都要保持一致。")
+        return "\n".join(parts)
+
+    def _page_image_prompt(self, plan: MaterialPlan, page: MaterialPage, page_count: int, reference_layout_prompt: str = "") -> str:
         previous_text = f"上一页是第 {page.continued_from} 页，本页必须自然延续。" if page.continued_from else "本页是第一页，建立整份资料的统一版式。"
         next_text = f"下一页是第 {page.continued_to} 页，本页末尾要保持可延续。" if page.continued_to else "本页是最后一页，需要自然收束。"
+        reference_text = f"{reference_layout_prompt}\n\n" if reference_layout_prompt else ""
         return (
             "请生成一张高清中文教育资料页面图片。\n"
             "这是同一份连续多页资料中的一页，必须严格保持整份资料的连续性。\n"
@@ -343,6 +363,7 @@ class ImagePdfGenerationAgent:
             "- 题号、任务编号、页码必须按本页内容严格绘制，不要自行新增或重排。\n"
             "- 不要新增题目，不要删减题目，不要编造机构、老师、水印或统计数据。\n"
             "- 中文必须清晰可读，不要乱码。\n"
+            f"{reference_text}"
             f"- {previous_text}\n"
             f"- {next_text}\n\n"
             f"本页栏目：{page.section_title}\n"

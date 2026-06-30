@@ -93,6 +93,16 @@ class FailingImagePlanGenerator(FakePlanGenerator):
         return None, TokenUsage()
 
 
+class ReferenceImageGenerator(FakePlanGenerator):
+    def __init__(self):
+        super().__init__()
+        self.reference_calls = []
+
+    def generate_image_with_reference_bytes(self, prompt, reference_image_paths, size="1024x1536"):
+        self.reference_calls.append((prompt, reference_image_paths, size))
+        return png_bytes(1024, 1536), TokenUsage(image_tokens=9, total_tokens=9)
+
+
 def test_image_pdf_generation_uses_material_plan_pages(tmp_path):
     generator = FakePlanGenerator()
     agent = ImagePdfGenerationAgent(
@@ -210,7 +220,7 @@ def test_reference_context_includes_manual_and_pdf_text(tmp_path, monkeypatch):
     monkeypatch.setattr("app.tasks.generators.pdf.PdfGenerationAgent._reference_profile", fake_profile)
     agent = ImagePdfGenerationAgent(file_root=tmp_path, base_url="http://testserver/files", content_generator=FallbackGenerator())
 
-    text, error, images = agent._reference_context(
+    text, error, images, layout_prompt = agent._reference_context(
         PdfGenerationInput(
             title="Reference PDF",
             summary="Reference summary",
@@ -224,6 +234,37 @@ def test_reference_context_includes_manual_and_pdf_text(tmp_path, monkeypatch):
     assert "manual reference" in text
     assert "pdf extracted text" in text
     assert images == [str(reference)]
+    assert "参考PDF" in layout_prompt
+
+
+def test_image_pdf_generation_sends_reference_image_when_file_uploaded(tmp_path, monkeypatch):
+    reference = tmp_path / "reference.png"
+    reference.write_bytes(png_bytes())
+
+    def fake_profile(self, payload):
+        if not payload.match_reference_style:
+            return None
+        return PdfReferenceProfile(text="pdf extracted text", preview_path=str(reference), layout_analysis="two-column worksheet with center divider")
+
+    monkeypatch.setattr("app.tasks.generators.pdf.PdfGenerationAgent._reference_profile", fake_profile)
+    generator = ReferenceImageGenerator()
+    agent = ImagePdfGenerationAgent(file_root=tmp_path, base_url="http://testserver/files", content_generator=generator)
+
+    result = agent.generate(
+        PdfGenerationInput(
+            title="Reference image",
+            summary="Use uploaded reference",
+            reference_file_path="materials/reference.pdf",
+            match_reference_style=False,
+        ),
+        page_count=1,
+    )
+
+    assert result.page_count == 1
+    assert len(generator.reference_calls) == 1
+    assert generator.reference_calls[0][1] == [str(reference)]
+    assert generator.plan_requests[0][1] == "pdf extracted text"
+    assert "two-column worksheet with center divider" in generator.reference_calls[0][0]
 
 
 @dataclass

@@ -42,6 +42,7 @@ class LlmContentStartPageResult:
     reason: str
     model: str
     usage: object
+    layout_analysis: str = ""
 
 
 @dataclass
@@ -139,6 +140,7 @@ class LlmContentGenerator:
         return LlmContentStartPageResult(
             page=result["page"],
             reason=result["reason"],
+            layout_analysis=result["layout_analysis"],
             model=self.settings.ai_text_model,
             usage=usage,
         )
@@ -530,6 +532,7 @@ class LlmContentGenerator:
 返回 JSON：
 {{
   "content_start_page": 1,
+  "layout_analysis": "用中文总结正文参考页的版型、布局、样式，包含纸张方向、单栏/双栏、分隔线、页眉页脚、题区分布、答题线、边距、字号层级和装饰元素，写成可直接拼进文生图提示词的约束。",
   "reason": "一句话说明为什么从这一页开始"
 }}
 """.strip()
@@ -547,7 +550,7 @@ class LlmContentGenerator:
             raise LlmGenerationError("LLM returned invalid content start page JSON") from exc
         page = int(data.get("content_start_page") or 1)
         page = max(1, min(page, max_page))
-        return {"page": page, "reason": str(data.get("reason") or "")}
+        return {"page": page, "reason": str(data.get("reason") or ""), "layout_analysis": str(data.get("layout_analysis") or "")}
 
     @staticmethod
     def _reference_analysis_system_prompt() -> str:
@@ -686,7 +689,7 @@ class LlmContentGenerator:
 输出 JSON：
 {{
   "material_type": "exam_paper | worksheet | knowledge_card | parent_guide | checklist | reference_material",
-  "title": "资料标题",
+  "title": {payload.title},
   "summary": "80字以内简介",
   "audience": "适用对象",
   "global_style": "简短描述整体版式，例如A4练习卷、知识卡、家长指南",

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     mysql_password: str = "root"
     mysql_charset: str = "utf8mb4"
     local_file_base_url: str = "http://localhost:8000/files"
-    local_file_root: str = "storage/files"
+    local_file_root: str = "/shiqu_data/files"
     wechat_app_id: str = ""
     wechat_app_secret: str = ""
     jwt_secret_key: str = "change-me-in-production"
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     ai_text_model: str = "gpt5.5"
     ai_image_model: str = "gpt-image-2"
     ai_generation_timeout: int = 60
-    ai_image_generation_timeout: int = 180
+    ai_image_generation_timeout: int = 480
     ai_image_pdf_max_pages: int = 12
 
     @property

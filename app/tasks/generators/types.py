@@ -27,6 +27,7 @@ class PdfReferenceProfile:
     preview_path: str | None = None
     layout_type: str | None = None
     layout_notes: list[str] | None = None
+    layout_analysis: str = ""
 
 
 @dataclass

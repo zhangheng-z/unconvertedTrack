@@ -43,6 +43,10 @@ def create_app(create_tables: bool = True) -> FastAPI:
     def root():
         return RedirectResponse(url="/admin-ui/")
 
+    @app.get("/health")
+    def health():
+        return {"status": "ok"}
+
     return app
 
 

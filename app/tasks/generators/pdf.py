@@ -397,7 +397,7 @@ class PdfGenerationAgent:
         if target.suffix.lower() != ".pdf" or not target.exists():
             return None
         fallback_text, fallback_start_page = self._read_pdf_text_with_start_page(target)
-        content_start_page, content_start_reason = self._content_start_page_from_llm(payload, target)
+        content_start_page, content_start_reason, layout_analysis = self._content_start_page_from_llm(payload, target)
         if content_start_page is None:
             text = fallback_text
             content_start_page = fallback_start_page
@@ -405,8 +405,11 @@ class PdfGenerationAgent:
             text = self._read_pdf_text_from_start_page(target, content_start_page)
         profile = PdfReferenceProfile(text=text, layout_notes=[], layout_type=payload.layout_type)
         profile.content_start_page = content_start_page
+        profile.layout_analysis = layout_analysis or ""
         if content_start_reason:
             profile.layout_notes.append(f"LLM selected content start page {content_start_page}: {content_start_reason}")
+        if layout_analysis:
+            profile.layout_notes.append(f"LLM layout analysis: {layout_analysis}")
         self._fill_pdfinfo(profile, target)
         self._render_reference_preview(profile, target)
         if profile.content_start_page > 1:
@@ -469,23 +472,23 @@ class PdfGenerationAgent:
         except Exception:
             return ""
 
-    def _content_start_page_from_llm(self, payload: PdfGenerationInput, target: Path) -> tuple[int | None, str | None]:
+    def _content_start_page_from_llm(self, payload: PdfGenerationInput, target: Path) -> tuple[int | None, str | None, str | None]:
         if not hasattr(self.content_generator, "detect_pdf_content_start_page"):
-            return None, None
+            return None, None, None
         previews = self._render_reference_pages_for_detection(target, page_count=4)
         if not previews:
-            return None, None
+            return None, None, None
         try:
             result = self.content_generator.detect_pdf_content_start_page(payload, [str(path) for path in previews])
         except LlmGenerationError as exc:
             logger.info("pdf_reference_content_start_page request_id=%s skipped error=%s", self._request_id, exc)
-            return None, f"LLM content start page failed: {exc}"
+            return None, f"LLM content start page failed: {exc}", None
         finally:
             for preview in previews:
                 preview.unlink(missing_ok=True)
         if result is None:
-            return None, None
-        return result.page, result.reason
+            return None, None, None
+        return result.page, result.reason, result.layout_analysis
 
     @staticmethod
     def _should_skip_first_reference_page(first_page: str, second_page: str) -> bool:
