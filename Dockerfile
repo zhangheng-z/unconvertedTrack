@@ -5,6 +5,7 @@ ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
+    SQLITE_DATABASE_PATH=shiqu_data/app.db \
     LOCAL_FILE_ROOT=/shiqu_data/files
 
 WORKDIR /app

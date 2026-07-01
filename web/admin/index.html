@@ -93,11 +93,11 @@
                 <span class="hint">优先触达高意向家长</span>
               </div>
               <div class="follow-card">
-                <div class="parent-avatar" aria-hidden="true">家</div>
+                <div class="parent-avatar" id="followUserAvatar" aria-hidden="true">家</div>
                 <div class="parent-summary">
                   <h3 id="followUserName">7岁孩子家长</h3>
                   <p id="followUserProfile">江苏 · 一年级</p>
-                  <div class="mini-tags">
+                  <div class="mini-tags" id="followIntentTags">
                     <span class="tag">活跃用户</span>
                     <span class="tag orange">高意向</span>
                   </div>
@@ -106,11 +106,11 @@
                   <div class="detail-row"><span>偏好标签</span><strong id="followTags">语文 · 识字 · PDF</strong></div>
                   <div class="detail-row"><span>最近行为</span><strong id="followAction">下载 3 份资料 · 完成语文测评</strong></div>
                   <div class="detail-row"><span>AI建议</span><strong class="green-text" id="followAdvice">推送语文训练营 + 识字提升计划</strong></div>
-                  <div class="detail-row"><span>最近访问</span><strong>2024-06-03 10:24</strong></div>
+                  <div class="detail-row"><span>最近访问</span><strong id="followLastActive">2024-06-03 10:24</strong></div>
                 </div>
               </div>
               <div class="follow-actions">
-                <button class="secondary" type="button">查看详情</button>
+                <button class="secondary" id="viewFollowUserDetail" type="button">查看详情</button>
                 <button class="secondary" type="button">发送资料</button>
                 <button class="secondary" type="button">推送测评</button>
                 <button class="primary compact" type="button">分配跟进</button>
@@ -174,15 +174,16 @@
                     <tr>
                       <th>用户</th>
                       <th>孩子</th>
-                      <th>来源</th>
                       <th>标签</th>
                       <th>行为数据</th>
+                      <th>注册时间</th>
                       <th>推荐动作</th>
                     </tr>
                   </thead>
                   <tbody id="userRows"></tbody>
                 </table>
               </div>
+              <div class="content-pagination" id="userPagination"></div>
             </section>
           </div>
         </section>
@@ -207,28 +208,15 @@
                 </label>
                 <label class="field">
                   <span>年级</span>
-                  <select name="grade">
-                    <option value="一年级">一年级</option>
-                    <option value="二年级">二年级</option>
-                    <option value="幼小衔接">幼小衔接</option>
-                  </select>
+                  <select name="grade" data-grade-select></select>
                 </label>
                 <label class="field">
                   <span>学科</span>
-                  <select name="subject">
-                    <option value="语文">语文</option>
-                    <option value="数学">数学</option>
-                    <option value="英语">英语</option>
-                  </select>
+                  <select name="subject" data-subject-select></select>
                 </label>
                 <label class="field">
                   <span>问题</span>
-                  <select name="problem">
-                    <option value="识字少">识字少</option>
-                    <option value="阅读差">阅读差</option>
-                    <option value="计算慢">计算慢</option>
-                    <option value="作业拖拉">作业拖拉</option>
-                  </select>
+                  <select name="problem" data-problem-select></select>
                 </label>
               </div>
 
@@ -360,6 +348,38 @@
         </section>
 
         <section class="view" id="contentsView" data-view="contents">
+          <section class="panel content-ranking-panel">
+            <div class="panel-head">
+              <div>
+                <h2>内容排行榜</h2>
+                <span class="hint">按领取、分享、线索综合表现排序</span>
+              </div>
+              <button class="secondary compact" id="openContentRankingModal" type="button">更多</button>
+            </div>
+            <div class="content-ranking-strip" id="contentRankingRows"></div>
+          </section>
+
+          <section class="panel taxonomy-panel">
+            <div class="panel-head">
+              <div>
+                <h2>标签管理</h2>
+                <span class="hint">控制后台下拉选项和小程序可展示的问题内容</span>
+              </div>
+            </div>
+            <form class="taxonomy-form" id="taxonomyForm">
+              <select name="tag_type" aria-label="标签类型">
+                <option value="subject">学科</option>
+                <option value="grade">年级</option>
+                <option value="problem_category">问题分类</option>
+                <option value="problem">问题</option>
+              </select>
+              <select name="parent_id" id="taxonomyParentSelect" aria-label="所属分类"></select>
+              <input name="label" required maxlength="80" placeholder="输入标签名称" />
+              <button class="primary compact" type="submit">新增标签</button>
+            </form>
+            <div class="taxonomy-groups" id="taxonomyGroups"></div>
+          </section>
+
           <section class="panel">
             <div class="panel-head">
               <div>
@@ -368,7 +388,26 @@
               </div>
               <button class="primary compact" id="openContentModal" type="button">上传本地文件</button>
             </div>
+            <div class="content-filter-bar">
+              <input id="contentTitleFilter" type="search" placeholder="按标题搜索" />
+              <select id="contentSubjectFilter" aria-label="按学科筛选">
+                <option value="">全部学科</option>
+              </select>
+              <select id="contentGradeFilter" aria-label="按年级筛选">
+                <option value="">全部年级</option>
+              </select>
+              <select id="contentFormatFilter" aria-label="按文件格式筛选">
+                <option value="">全部格式</option>
+                <option value="pdf">PDF</option>
+                <option value="image">图片</option>
+                <option value="video">视频</option>
+                <option value="assessment">测评</option>
+                <option value="camp">训练营</option>
+              </select>
+              <button class="secondary compact" id="clearContentFilters" type="button">重置</button>
+            </div>
             <div class="content-list" id="contentList"></div>
+            <div class="content-pagination" id="contentPagination"></div>
           </section>
         </section>
 
@@ -423,6 +462,34 @@
         </section>
       </main>
 
+      <div class="modal-backdrop" id="contentRankingModal" hidden>
+        <section class="modal-card ranking-modal-card">
+          <div class="modal-head">
+            <div>
+              <h2>内容排行榜</h2>
+              <span class="hint">按领取、分享、线索综合表现排序</span>
+            </div>
+            <button class="icon-button" id="closeContentRankingModal" type="button" aria-label="关闭">×</button>
+          </div>
+          <div class="table-wrap ranking-modal-table-wrap">
+            <table class="content-ranking-table">
+              <thead>
+                <tr>
+                  <th>排名</th>
+                  <th>内容</th>
+                  <th>类型</th>
+                  <th>领取</th>
+                  <th>分享</th>
+                  <th>线索</th>
+                </tr>
+              </thead>
+              <tbody id="contentRankingModalRows"></tbody>
+            </table>
+          </div>
+          <div class="content-pagination" id="contentRankingPagination"></div>
+        </section>
+      </div>
+
       <div class="modal-backdrop" id="contentModal" hidden>
         <form class="modal-card" id="uploadContentForm">
           <div class="modal-head">
@@ -436,7 +503,7 @@
           <div class="form-row two">
             <label class="field">
               <span>内容标题</span>
-              <input name="title" required placeholder="一年级识字阅读自测表" />
+              <input name="title" required placeholder="一年级识字少自测表" />
             </label>
             <label class="field">
               <span>内容类型</span>
@@ -452,15 +519,15 @@
           <div class="form-row three">
             <label class="field">
               <span>学科</span>
-              <input name="subject" placeholder="语文" />
+              <select name="subject" data-subject-select></select>
             </label>
             <label class="field">
               <span>问题</span>
-              <input name="problem" placeholder="识字阅读" />
+              <select name="problem" data-problem-select></select>
             </label>
             <label class="field">
               <span>年级</span>
-              <input name="grade" placeholder="一年级" />
+              <select name="grade" data-grade-select></select>
             </label>
           </div>
           <div class="form-row two">
@@ -492,6 +559,31 @@
           <div class="modal-actions">
             <button class="secondary" id="cancelContentModal" type="button">取消</button>
             <button class="primary compact" type="submit">保存并发布</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-backdrop" id="taxonomyActionModal" hidden>
+        <form class="modal-card taxonomy-action-card" id="taxonomyActionForm">
+          <div class="modal-head">
+            <div>
+              <h2 id="taxonomyActionTitle">标签操作</h2>
+              <span class="hint" id="taxonomyActionHint"></span>
+            </div>
+            <button class="icon-button" id="closeTaxonomyActionModal" type="button" aria-label="关闭">×</button>
+          </div>
+          <input name="tag_id" type="hidden" />
+          <input name="tag_type" type="hidden" />
+          <input name="action" type="hidden" />
+          <label class="field full-field" id="taxonomyActionLabelField">
+            <span>标签名称</span>
+            <input name="label" maxlength="80" />
+          </label>
+          <p class="taxonomy-confirm-text" id="taxonomyConfirmText"></p>
+          <p class="form-message" id="taxonomyActionMessage" role="status"></p>
+          <div class="modal-actions">
+            <button class="secondary" id="cancelTaxonomyActionModal" type="button">取消</button>
+            <button class="primary compact" id="submitTaxonomyActionModal" type="submit">确定</button>
           </div>
         </form>
       </div>

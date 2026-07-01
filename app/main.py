@@ -26,6 +26,11 @@ def init_db() -> None:
             connection.execute(text("ALTER TABLE contents ADD COLUMN unlock_type VARCHAR(40) NOT NULL DEFAULT 'free'"))
         if "unlock_threshold" not in content_columns:
             connection.execute(text("ALTER TABLE contents ADD COLUMN unlock_threshold INT NOT NULL DEFAULT 0"))
+    if "taxonomy_tags" in inspector.get_table_names():
+        taxonomy_columns = {column["name"] for column in inspector.get_columns("taxonomy_tags")}
+        if "parent_id" not in taxonomy_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE taxonomy_tags ADD COLUMN parent_id INT NULL"))
 
 
 def create_app(create_tables: bool = True) -> FastAPI:

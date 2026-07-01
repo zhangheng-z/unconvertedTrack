@@ -31,6 +31,7 @@ from app.schemas.parent import (
     WechatLoginResponse,
 )
 from app.services.auth import AuthService
+from app.services.admin import AdminService
 from app.services.files import FileStorage
 from app.services.parent import ParentService
 
@@ -63,6 +64,11 @@ def my_profile(current_user: User = Depends(get_current_user)):
         nickname=current_user.nickname,
         avatar_url=current_user.avatar_url,
     )
+
+
+@router.get("/taxonomy-options")
+def taxonomy_options(db: Session = Depends(get_db)):
+    return AdminService(db).taxonomy_options()
 
 
 @router.patch("/me/profile", response_model=UserProfileResponse)

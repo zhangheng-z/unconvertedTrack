@@ -44,6 +44,41 @@ class PublishRequest(BaseModel):
     is_published: bool
 
 
+class TaxonomyTagCreateRequest(BaseModel):
+    tag_type: str = Field(pattern="^(subject|grade|problem_category|problem)$")
+    label: str = Field(min_length=1, max_length=80)
+    parent_id: int | None = None
+    is_active: bool = True
+
+
+class TaxonomyTagUpdateRequest(BaseModel):
+    label: str | None = Field(default=None, min_length=1, max_length=80)
+    parent_id: int | None = None
+    is_active: bool | None = None
+
+
+class TaxonomyTagResponse(OrmModel):
+    id: int
+    tag_type: str
+    label: str
+    parent_id: int | None = None
+    is_active: bool
+    sort_order: int
+
+
+class ProblemCategoryOption(BaseModel):
+    id: int
+    label: str
+    problems: list[str] = Field(default_factory=list)
+
+
+class TaxonomyOptionsResponse(BaseModel):
+    subjects: list[str]
+    grades: list[str]
+    problems: list[str]
+    problem_categories: list[ProblemCategoryOption] = Field(default_factory=list)
+
+
 class AiPdfGenerateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=160)
     summary: str = Field(min_length=1)
@@ -129,6 +164,13 @@ class ContentAdminResponse(OrmModel):
     lead_count: int = 0
 
 
+class DashboardMetricChange(BaseModel):
+    current: int
+    previous: int
+    percent: float
+    direction: str
+
+
 class DashboardOverview(BaseModel):
     new_users: int
     active_users: int
@@ -136,6 +178,7 @@ class DashboardOverview(BaseModel):
     downloaded: int
     shared: int
     leads: int
+    changes: dict[str, DashboardMetricChange] = Field(default_factory=dict)
 
 
 class PreferenceItem(BaseModel):
@@ -154,6 +197,7 @@ class AdminUserProfileResponse(BaseModel):
     user_id: int
     open_id: str
     nickname: str | None
+    avatar_url: str | None = None
     source_channel: str | None
     child_age: int | None
     child_grade: str | None
@@ -169,6 +213,14 @@ class AdminUserProfileResponse(BaseModel):
     intent_score: int = 0
     intent_level: str
     recommended_action: str
+
+
+class AdminUserPageResponse(BaseModel):
+    items: list[AdminUserProfileResponse]
+    total: int
+    page: int
+    page_size: int
+    recommended: list[AdminUserProfileResponse] = Field(default_factory=list)
 
 
 class AiTopicSuggestionResponse(OrmModel):

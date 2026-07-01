@@ -17,6 +17,13 @@ function onboardProfile(payload) {
   })
 }
 
+function listTaxonomyOptions() {
+  return request({
+    url: '/api/v1/taxonomy-options',
+    skipAuth: true
+  })
+}
+
 function listContents(params) {
   return request({
     url: '/api/v1/contents',
@@ -114,6 +121,7 @@ function uploadAvatar(filePath) {
 module.exports = {
   wechatLogin,
   onboardProfile,
+  listTaxonomyOptions,
   listContents,
   getContentDetail,
   claimContent,

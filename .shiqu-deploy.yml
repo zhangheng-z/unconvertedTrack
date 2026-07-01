@@ -7,12 +7,7 @@ health:
   expectedStatus: 200
   timeoutSeconds: 90
 envRequirements:
-  - MYSQL_HOST
-  - MYSQL_PORT
-  - MYSQL_DATABASE
-  - MYSQL_USER
-  - MYSQL_PASSWORD
-  - MYSQL_CHARSET
+  - SQLITE_DATABASE_PATH
   - LOCAL_FILE_BASE_URL
   - LOCAL_FILE_ROOT
   - WECHAT_APP_ID

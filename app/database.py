@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -6,7 +7,15 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from app.config import get_settings
 
 settings = get_settings()
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+engine_kwargs = {}
+if settings.database_url.startswith("sqlite"):
+    if settings.sqlite_database_path != ":memory:":
+        Path(settings.sqlite_database_path).parent.mkdir(parents=True, exist_ok=True)
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    engine_kwargs["pool_pre_ping"] = True
+
+engine = create_engine(settings.database_url, **engine_kwargs)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 

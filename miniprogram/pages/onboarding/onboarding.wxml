@@ -24,8 +24,18 @@
       <text class="field-label">关注问题</text>
       <text class="field-hint">可多选，最多3个</text>
     </view>
+    <view class="category-tabs">
+      <text wx:for="{{concernCategories}}" wx:key="key" class="category-tab {{activeConcernCategory === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="selectConcernCategory">{{item.label}}</text>
+    </view>
     <view class="option-grid concern-grid">
-      <text wx:for="{{concerns}}" wx:key="*this" class="option concern {{selectedConcerns[item] ? 'active' : ''}}" data-value="{{item}}" bindtap="toggleConcern">{{item}}<text wx:if="{{selectedConcerns[item]}}" class="check-mark">✓</text></text>
+      <text wx:for="{{currentConcerns}}" wx:key="*this" class="option concern {{selectedConcerns[item] ? 'active' : ''}}" data-value="{{item}}" bindtap="toggleConcern">{{item}}<text wx:if="{{selectedConcerns[item]}}" class="check-mark">✓</text></text>
+    </view>
+    <view class="selected-panel">
+      <text class="selected-label">已选</text>
+      <view wx:if="{{selectedConcernList.length}}" class="selected-tags">
+        <text wx:for="{{selectedConcernList}}" wx:key="*this" class="selected-tag">{{item}}</text>
+      </view>
+      <text wx:else class="selected-empty">请选择孩子最主要的 1-3 个问题</text>
     </view>
   </view>
 
@@ -40,4 +50,3 @@
   <button class="primary-button submit-button" loading="{{submitting}}" bindtap="submitProfile">生成内容池</button>
   <text class="privacy-note">信息仅用于内容推荐，不会对外展示</text>
 </view>
-

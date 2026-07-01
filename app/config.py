@@ -1,19 +1,14 @@
 from functools import lru_cache
-from urllib.parse import quote_plus
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    mysql_host: str = "127.0.0.1"
-    mysql_port: int = 3306
-    mysql_database: str = "unconvertedTrack"
-    test_mysql_database: str = "unconvertedTrack_test"
-    mysql_user: str = "root"
-    mysql_password: str = "root"
-    mysql_charset: str = "utf8mb4"
+    database_url_override: str = Field(default="", alias="DATABASE_URL")
+    sqlite_database_path: str = "shiqu_data/app.db"
     local_file_base_url: str = "http://localhost:8000/files"
     local_file_root: str = "/shiqu_data/files"
     wechat_app_id: str = ""
@@ -32,10 +27,10 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        user = quote_plus(self.mysql_user)
-        password = quote_plus(self.mysql_password)
-        database = quote_plus(self.mysql_database)
-        return f"mysql+pymysql://{user}:{password}@{self.mysql_host}:{self.mysql_port}/{database}?charset={self.mysql_charset}"
+        if self.database_url_override:
+            return self.database_url_override
+        sqlite_path = self.sqlite_database_path.replace("\\", "/")
+        return f"sqlite:///{sqlite_path}"
 
 
 @lru_cache

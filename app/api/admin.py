@@ -15,13 +15,17 @@ from app.schemas.admin import (
     AiModelCallLogListItem,
     AiPdfGenerateRequest,
     AiTopicSuggestionResponse,
-    AdminUserProfileResponse,
+    AdminUserPageResponse,
     ContentAdminResponse,
     ContentCreateRequest,
     ContentUpdateRequest,
     DashboardOverview,
     PreferenceOverview,
     PublishRequest,
+    TaxonomyOptionsResponse,
+    TaxonomyTagCreateRequest,
+    TaxonomyTagResponse,
+    TaxonomyTagUpdateRequest,
 )
 from app.services.admin import AdminService
 from app.tasks.generators import ImagePdfGenerationAgent, PdfGenerationInput
@@ -57,13 +61,15 @@ def list_admin_contents(
     return AdminService(db).list_contents(start_date, end_date, is_published)
 
 
-@router.get("/users", response_model=list[AdminUserProfileResponse])
+@router.get("/users", response_model=AdminUserPageResponse)
 def list_admin_users(
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=5, ge=1, le=50),
     db: Session = Depends(get_db),
 ):
-    return AdminService(db).user_profiles(start_date, end_date)
+    return AdminService(db).user_profiles(start_date, end_date, page, page_size)
 
 
 @router.post("/contents", response_model=ContentAdminResponse)
@@ -100,6 +106,41 @@ def publish_content(content_id: int, payload: PublishRequest, db: Session = Depe
 @router.delete("/contents/{content_id}", status_code=204)
 def delete_content(content_id: int, db: Session = Depends(get_db)):
     AdminService(db).delete_content(content_id)
+
+
+@router.get("/taxonomy-tags", response_model=list[TaxonomyTagResponse])
+def list_taxonomy_tags(db: Session = Depends(get_db)):
+    return AdminService(db).taxonomy_tags()
+
+
+@router.get("/taxonomy-options", response_model=TaxonomyOptionsResponse)
+def taxonomy_options(db: Session = Depends(get_db)):
+    return AdminService(db).taxonomy_options()
+
+
+@router.post("/taxonomy-tags", response_model=TaxonomyTagResponse)
+def create_taxonomy_tag(payload: TaxonomyTagCreateRequest, db: Session = Depends(get_db)):
+    return AdminService(db).create_taxonomy_tag(payload)
+
+
+@router.patch("/taxonomy-tags/{tag_id}", response_model=TaxonomyTagResponse)
+def update_taxonomy_tag(tag_id: int, payload: TaxonomyTagUpdateRequest, db: Session = Depends(get_db)):
+    return AdminService(db).update_taxonomy_tag(tag_id, payload)
+
+
+@router.patch("/taxonomy-tags/{tag_type}/{tag_id}", response_model=TaxonomyTagResponse)
+def update_taxonomy_tag_by_type(
+    tag_type: str,
+    tag_id: int,
+    payload: TaxonomyTagUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    return AdminService(db).update_taxonomy_tag(tag_id, payload, tag_type)
+
+
+@router.delete("/taxonomy-tags/{tag_type}/{tag_id}", status_code=204)
+def delete_taxonomy_tag(tag_type: str, tag_id: int, db: Session = Depends(get_db)):
+    AdminService(db).delete_taxonomy_tag(tag_id, tag_type)
 
 
 @router.post("/ai/generate/image-pdf", response_model=AiImagePdfGenerateResponse)

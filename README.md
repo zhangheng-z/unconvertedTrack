@@ -14,36 +14,27 @@ uvicorn app.main:app --reload
 默认使用 MySQL，连接信息在 `.env` 中拆分配置：
 
 ```env
-MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3306
-MYSQL_DATABASE=unconvertedTrack
-MYSQL_USER=root
-MYSQL_PASSWORD=root
-MYSQL_CHARSET=utf8mb4
-TEST_MYSQL_DATABASE=unconvertedTrack_test
+SQLITE_DATABASE_PATH=shiqu_data/app.db
+LOCAL_FILE_ROOT=/shiqu_data/files
 ```
 
 本地 MySQL 初始化示例：
 
 ```sql
-CREATE DATABASE unconvertedTrack CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE DATABASE unconvertedTrack_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-FLUSH PRIVILEGES;
+SQLite creates the database file automatically.
 ```
 
 也可以直接启动仓库内置 MySQL：
 
 ```bash
-docker compose up -d mysql
 copy .env.example .env
 python -m app.seed
 uvicorn app.main:app --reload
 ```
 
-测试默认读取同一组 `MYSQL_USER` / `MYSQL_PASSWORD`，数据库名使用 `TEST_MYSQL_DATABASE`，例如：
+测试默认使用临时 SQLite 数据库，例如：
 
 ```bash
-set TEST_MYSQL_DATABASE=unconvertedTrack_test
 pytest
 ```
 
@@ -111,3 +102,14 @@ uvicorn app.main:app --reload
 - `PATCH /admin/contents/{id}`
 - `PATCH /admin/contents/{id}/publish`
 - `GET /admin/ai/topic-suggestions`
+
+## ShiQu AI container deployment
+
+The container deployment uses local SQLite by default. Persist runtime data under the ShiQu managed directory:
+
+```env
+SQLITE_DATABASE_PATH=shiqu_data/app.db
+LOCAL_FILE_ROOT=/shiqu_data/files
+```
+
+The service listens on container port `8080` and exposes `GET /health` for startup verification.

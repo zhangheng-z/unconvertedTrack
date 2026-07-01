@@ -1,8 +1,33 @@
 const metricsEl = document.querySelector('#metrics')
 const preferenceGroupsEl = document.querySelector('#preferenceGroups')
 const rankingRowsEl = document.querySelector('#rankingRows')
+const contentRankingRowsEl = document.querySelector('#contentRankingRows')
+const openContentRankingModalButton = document.querySelector('#openContentRankingModal')
+const contentRankingModal = document.querySelector('#contentRankingModal')
+const closeContentRankingModalButton = document.querySelector('#closeContentRankingModal')
+const contentRankingModalRowsEl = document.querySelector('#contentRankingModalRows')
+const contentRankingPaginationEl = document.querySelector('#contentRankingPagination')
 const contentListEl = document.querySelector('#contentList')
 const contentCountEl = document.querySelector('#contentCount')
+const contentTitleFilter = document.querySelector('#contentTitleFilter')
+const contentSubjectFilter = document.querySelector('#contentSubjectFilter')
+const contentGradeFilter = document.querySelector('#contentGradeFilter')
+const contentFormatFilter = document.querySelector('#contentFormatFilter')
+const clearContentFiltersButton = document.querySelector('#clearContentFilters')
+const contentPaginationEl = document.querySelector('#contentPagination')
+const taxonomyForm = document.querySelector('#taxonomyForm')
+const taxonomyParentSelect = document.querySelector('#taxonomyParentSelect')
+const taxonomyGroupsEl = document.querySelector('#taxonomyGroups')
+const taxonomyActionModal = document.querySelector('#taxonomyActionModal')
+const taxonomyActionForm = document.querySelector('#taxonomyActionForm')
+const closeTaxonomyActionModalButton = document.querySelector('#closeTaxonomyActionModal')
+const cancelTaxonomyActionModalButton = document.querySelector('#cancelTaxonomyActionModal')
+const taxonomyActionTitle = document.querySelector('#taxonomyActionTitle')
+const taxonomyActionHint = document.querySelector('#taxonomyActionHint')
+const taxonomyActionLabelField = document.querySelector('#taxonomyActionLabelField')
+const taxonomyConfirmText = document.querySelector('#taxonomyConfirmText')
+const taxonomyActionMessage = document.querySelector('#taxonomyActionMessage')
+const submitTaxonomyActionModalButton = document.querySelector('#submitTaxonomyActionModal')
 const reviewListEl = document.querySelector('#reviewList')
 const reviewCountEl = document.querySelector('#reviewCount')
 const refreshButton = document.querySelector('#refreshButton')
@@ -26,14 +51,21 @@ const productionTipsEl = document.querySelector('#productionTips')
 const funnelStepsEl = document.querySelector('#funnelSteps')
 const opportunityListEl = document.querySelector('#opportunityList')
 const activityListEl = document.querySelector('#activityList')
+const followUserAvatarEl = document.querySelector('#followUserAvatar')
+const followUserNameEl = document.querySelector('#followUserName')
+const followUserProfileEl = document.querySelector('#followUserProfile')
+const followIntentTagsEl = document.querySelector('#followIntentTags')
 const followTagsEl = document.querySelector('#followTags')
 const followActionEl = document.querySelector('#followAction')
 const followAdviceEl = document.querySelector('#followAdvice')
+const followLastActiveEl = document.querySelector('#followLastActive')
+const viewFollowUserDetailButton = document.querySelector('#viewFollowUserDetail')
 const insightTitleEl = document.querySelector('#insightTitle')
 const insightListEl = document.querySelector('#insightList')
 const followRankingEl = document.querySelector('#followRanking')
 const userRowsEl = document.querySelector('#userRows')
 const registeredUserCountEl = document.querySelector('#registeredUserCount')
+const userPaginationEl = document.querySelector('#userPagination')
 const openContentModalButton = document.querySelector('#openContentModal')
 const contentModal = document.querySelector('#contentModal')
 const uploadContentForm = document.querySelector('#uploadContentForm')
@@ -60,25 +92,64 @@ const state = {
   reviewContents: [],
   suggestions: [],
   users: [],
+  recommendedUsers: [],
+  userTotal: 0,
+  userPage: 1,
   aiLogs: [],
+  taxonomyTags: [],
+  taxonomyOptions: {
+    subjects: [],
+    grades: [],
+    problems: [],
+    problem_categories: []
+  },
+  taxonomyActiveType: 'problem',
+  taxonomyActiveProblemCategoryId: 'all',
+  taxonomyPage: 1,
+  contentFilters: {
+    title: '',
+    subject: '',
+    grade: '',
+    format: ''
+  },
+  contentPage: 1,
+  contentRankingPage: 1,
   generatedPdf: null
 }
 
+const CONTENT_PAGE_SIZE = 5
+const CONTENT_RANKING_PAGE_SIZE = 5
+const TAXONOMY_PAGE_SIZE = 15
+const USER_PAGE_SIZE = 5
+
 const metricConfig = [
-  { key: 'new_users', label: '新增用户', icon: '新', change: '18.7%' },
-  { key: 'claimed', label: '资料领取', icon: '领', change: '22.3%' },
-  { key: 'shared', label: '分享次数', icon: '享', change: '16.5%' },
-  { key: 'downloaded', label: '测评完成', icon: '测', change: '12.1%' },
-  { key: 'active_users', label: '训练营报名', icon: '训', change: '9.8%' },
-  { key: 'leads', label: '转化线索', icon: '转', change: '14.3%' }
+  { key: 'new_users', label: '新增用户', icon: 'assets/icons/user-plus.svg' },
+  { key: 'claimed', label: '资料领取', icon: 'assets/icons/file-check.svg' },
+  { key: 'shared', label: '分享次数', icon: 'assets/icons/share.svg' },
+  { key: 'downloaded', label: '测评完成', icon: 'assets/icons/assessment.svg' },
+  { key: 'active_users', label: '训练营报名', icon: 'assets/icons/camp.svg' },
+  { key: 'leads', label: '转化线索', icon: 'assets/icons/conversion.svg' }
 ]
 
 const preferenceConfig = [
   { key: 'ages', label: '年龄', color: 'green', fallback: ['7岁', '一年级'] },
   { key: 'subjects', label: '学科', color: 'blue', fallback: ['语文', '数学', '专注力'] },
-  { key: 'problems', label: '问题', color: 'orange', fallback: ['识字少', '阅读差', '计算慢', '作业拖拉'] },
+  { key: 'problems', label: '问题', color: 'orange', fallback: ['识字少', '阅读理解差', '计算慢', '应用题不会做'] },
   { key: 'content_types', label: '内容类型', color: 'purple', fallback: ['PDF', '图片', '测评'] }
 ]
+
+const DEFAULT_TAXONOMY_OPTIONS = {
+  subjects: ['语文', '数学', '英语', '编程'],
+  grades: ['幼小衔接', '一年级', '二年级', '三年级', '四年级', '五年级', '六年级', '小升初'],
+  problems: ['识字少', '阅读理解差', '计算慢', '应用题不会做', '作业拖拉', '注意力不集中', '粗心马虎', '幼小衔接']
+}
+
+const taxonomyTypeLabels = {
+  subject: '学科',
+  grade: '年级',
+  problem_category: '问题分类',
+  problem: '问题'
+}
 
 const titleMap = {
   dashboard: '数据看板',
@@ -98,7 +169,10 @@ async function request(url, options = {}) {
     const text = await response.text()
     throw new Error(text || '请求失败')
   }
-  return response.json()
+  if (response.status === 204) return null
+  const text = await response.text()
+  if (!text) return null
+  return JSON.parse(text)
 }
 
 function formatDateInput(date) {
@@ -170,6 +244,110 @@ function rangeLabel() {
   return `${days}天内`
 }
 
+function compareLabel() {
+  if (datePreset.value === 'today') return '较昨日'
+  if (datePreset.value === '7') return '较上周'
+  if (datePreset.value === '30' || datePreset.value === 'month') return '较上月'
+  return '较上一周期'
+}
+
+function metricChangeMarkup(metricKey) {
+  const change = state.dashboard?.changes?.[metricKey]
+  if (!change) return `<small class="flat">${compareLabel()} 0%</small>`
+  const direction = change.direction || 'flat'
+  const symbol = direction === 'up' ? '▲' : direction === 'down' ? '▼' : '■'
+  const percent = Math.abs(Number(change.percent || 0)).toFixed(1).replace(/\.0$/, '')
+  return `<small class="${escapeHtml(direction)}">${compareLabel()} ${symbol} ${percent}%</small>`
+}
+
+function taxonomyOptions(key) {
+  const values = state.taxonomyOptions[key]?.length
+    ? state.taxonomyOptions[key]
+    : DEFAULT_TAXONOMY_OPTIONS[key]
+  return [...new Set(values || [])]
+}
+
+function selectOptionsMarkup(key, placeholder, value = '') {
+  if (key === 'problems') return problemOptionsMarkup(placeholder, value)
+  const selectedValue = readableText(value)
+  const options = taxonomyOptions(key)
+  const known = options.includes(selectedValue)
+  const rows = options
+    .map((item) => `<option value="${escapeHtml(item)}" ${item === selectedValue ? 'selected' : ''}>${escapeHtml(item)}</option>`)
+    .join('')
+  const legacy = selectedValue && !known
+    ? `<option value="${escapeHtml(selectedValue)}" selected>${escapeHtml(selectedValue)}（历史值）</option>`
+    : ''
+  return `<option value="">${escapeHtml(placeholder)}</option>${rows}${legacy}`
+}
+
+function problemOptionsMarkup(placeholder, value = '') {
+  const selectedValue = readableText(value)
+  const flatOptions = taxonomyOptions('problems')
+  const categorized = new Set()
+  const categoryRows = (state.taxonomyOptions.problem_categories || [])
+    .filter((category) => category.problems?.length)
+    .map((category) => {
+      const options = category.problems
+        .map((problem) => {
+          categorized.add(problem)
+          return `<option value="${escapeHtml(problem)}" ${problem === selectedValue ? 'selected' : ''}>${escapeHtml(problem)}</option>`
+        })
+        .join('')
+      return `<optgroup label="${escapeHtml(category.label)}">${options}</optgroup>`
+    })
+    .join('')
+  const otherRows = flatOptions
+    .filter((problem) => !categorized.has(problem))
+    .map((problem) => `<option value="${escapeHtml(problem)}" ${problem === selectedValue ? 'selected' : ''}>${escapeHtml(problem)}</option>`)
+    .join('')
+  const otherGroup = otherRows ? `<optgroup label="其他">${otherRows}</optgroup>` : ''
+  const known = flatOptions.includes(selectedValue)
+  const legacy = selectedValue && !known
+    ? `<option value="${escapeHtml(selectedValue)}" selected>${escapeHtml(selectedValue)}（历史值）</option>`
+    : ''
+  return `<option value="">${escapeHtml(placeholder)}</option>${categoryRows}${otherGroup}${legacy}`
+}
+
+function populateTaxonomySelects() {
+  document.querySelectorAll('[data-subject-select]').forEach((select) => {
+    select.innerHTML = selectOptionsMarkup('subjects', '请选择学科', select.value)
+  })
+  document.querySelectorAll('[data-grade-select]').forEach((select) => {
+    select.innerHTML = selectOptionsMarkup('grades', '请选择年级', select.value)
+  })
+  document.querySelectorAll('[data-problem-select]').forEach((select) => {
+    select.innerHTML = selectOptionsMarkup('problems', '请选择问题', select.value)
+  })
+}
+
+function setTaxonomySelectValue(select, key, placeholder, value = '') {
+  if (!select) return
+  select.innerHTML = selectOptionsMarkup(key, placeholder, value)
+  select.value = value || ''
+}
+
+function activeProblemCategories() {
+  return state.taxonomyTags
+    .filter((tag) => tag.tag_type === 'problem_category' && tag.is_active)
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.id - b.id)
+}
+
+function populateTaxonomyParentSelect() {
+  if (!taxonomyParentSelect || !taxonomyForm) return
+  const isProblem = taxonomyForm.elements.tag_type.value === 'problem'
+  taxonomyParentSelect.hidden = !isProblem
+  taxonomyParentSelect.disabled = !isProblem
+  if (!isProblem) {
+    taxonomyParentSelect.innerHTML = ''
+    return
+  }
+  const categories = activeProblemCategories()
+  taxonomyParentSelect.innerHTML = categories
+    .map((category) => `<option value="${category.id}">${escapeHtml(category.label)}</option>`)
+    .join('')
+}
+
 function readableText(value) {
   const text = String(value ?? '')
   if (!/[ÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßà-ÿ]/.test(text)) return text
@@ -228,6 +406,7 @@ function bindDateFilters() {
   initDateRange()
   datePreset.addEventListener('change', () => {
     setPresetRange(datePreset.value)
+    state.userPage = 1
     refreshAll()
   })
   ;[startDateInput, endDateInput].forEach((input) => {
@@ -236,19 +415,61 @@ function bindDateFilters() {
         endDateInput.value = startDateInput.value
       }
       datePreset.value = 'custom'
+      state.userPage = 1
       refreshAll()
     })
   })
+}
+
+function bindContentFilters() {
+  if (!contentTitleFilter || !contentSubjectFilter || !contentGradeFilter || !contentFormatFilter) return
+
+  contentTitleFilter.addEventListener('input', () => {
+    state.contentFilters.title = contentTitleFilter.value
+    state.contentPage = 1
+    renderContents()
+  })
+
+  contentSubjectFilter.addEventListener('change', () => {
+    state.contentFilters.subject = contentSubjectFilter.value
+    state.contentPage = 1
+    renderContents()
+  })
+
+  contentGradeFilter.addEventListener('change', () => {
+    state.contentFilters.grade = contentGradeFilter.value
+    state.contentPage = 1
+    renderContents()
+  })
+
+  contentFormatFilter.addEventListener('change', () => {
+    state.contentFilters.format = contentFormatFilter.value
+    state.contentPage = 1
+    renderContents()
+  })
+
+  if (clearContentFiltersButton) {
+    clearContentFiltersButton.addEventListener('click', () => {
+      state.contentFilters = { title: '', subject: '', grade: '', format: '' }
+      state.contentPage = 1
+      contentTitleFilter.value = ''
+      contentSubjectFilter.value = ''
+      contentGradeFilter.value = ''
+      contentFormatFilter.value = ''
+      renderContents()
+    })
+  }
 }
 
 function renderMetrics() {
   const dashboard = state.dashboard || {}
   metricsEl.innerHTML = metricConfig
     .map((metric) => `
-      <article class="metric" data-icon="${metric.icon}">
-        <span>${metric.label}</span>
+      <article class="metric">
+        <span class="metric-icon" aria-hidden="true"><img src="${metric.icon}" alt="" /></span>
+        <span class="metric-label">${metric.label}</span>
         <strong>${formatNumber(dashboard[metric.key])}</strong>
-        <small>较上周 ▲ ${metric.change}</small>
+        ${metricChangeMarkup(metric.key)}
       </article>
     `)
     .join('')
@@ -311,16 +532,14 @@ function unlockLabel(item) {
 }
 
 function renderRanking() {
-  const rows = [...state.contents]
-    .sort((a, b) => {
-      const scoreA = (a.claim_count || 0) + (a.share_count || 0) * 2 + (a.lead_count || 0) * 3
-      const scoreB = (b.claim_count || 0) + (b.share_count || 0) * 2 + (b.lead_count || 0) * 3
-      return scoreB - scoreA
-    })
-    .slice(0, 5)
+  const rows = rankedContents().slice(0, 5)
 
   if (!rows.length) {
     rankingRowsEl.innerHTML = '<tr><td colspan="5" class="empty-state">暂无内容数据</td></tr>'
+    if (contentRankingRowsEl) {
+      contentRankingRowsEl.innerHTML = '<div class="empty-state">暂无内容数据</div>'
+    }
+    renderContentRankingModal()
     return
   }
 
@@ -335,6 +554,100 @@ function renderRanking() {
       </tr>
     `)
     .join('')
+
+  if (contentRankingRowsEl) {
+    contentRankingRowsEl.innerHTML = rows
+      .map((item, index) => `
+        <article class="ranking-mini-card">
+          <div class="ranking-mini-head">
+            <span class="rank-badge">${index + 1}</span>
+            <span class="format-pill">${escapeHtml(typeLabel(item.content_type))}</span>
+          </div>
+          <div class="ranking-mini-title">${escapeHtml(item.title)}</div>
+          <div class="ranking-mini-stats">
+            <span>领取 ${formatNumber(item.claim_count)}</span>
+            <span>分享 ${formatNumber(item.share_count)}</span>
+            <span>线索 ${formatNumber(item.lead_count)}</span>
+          </div>
+        </article>
+      `)
+      .join('')
+  }
+  renderContentRankingModal()
+}
+
+function rankedContents() {
+  return [...state.contents]
+    .sort((a, b) => {
+      const scoreA = (a.claim_count || 0) + (a.share_count || 0) * 2 + (a.lead_count || 0) * 3
+      const scoreB = (b.claim_count || 0) + (b.share_count || 0) * 2 + (b.lead_count || 0) * 3
+      return scoreB - scoreA
+    })
+}
+
+function contentRankingModalRow(item, index) {
+  return `
+      <tr>
+        <td><span class="rank-badge">${index + 1}</span></td>
+        <td><div class="ranking-title-cell">${escapeHtml(item.title)}</div></td>
+        <td>${escapeHtml(typeLabel(item.content_type))}</td>
+        <td>${formatNumber(item.claim_count)}</td>
+        <td>${formatNumber(item.share_count)}</td>
+        <td>${formatNumber(item.lead_count)}</td>
+      </tr>
+    `
+}
+
+function renderContentRankingPagination(total) {
+  if (!contentRankingPaginationEl) return
+  const totalPages = Math.max(1, Math.ceil(total / CONTENT_RANKING_PAGE_SIZE))
+  state.contentRankingPage = Math.min(Math.max(1, state.contentRankingPage), totalPages)
+
+  if (!total) {
+    contentRankingPaginationEl.innerHTML = ''
+    return
+  }
+
+  const start = (state.contentRankingPage - 1) * CONTENT_RANKING_PAGE_SIZE + 1
+  const end = Math.min(total, state.contentRankingPage * CONTENT_RANKING_PAGE_SIZE)
+  contentRankingPaginationEl.innerHTML = `
+    <span class="pagination-summary">第 ${state.contentRankingPage} / ${totalPages} 页 · 显示 ${start}-${end} 条，共 ${total} 条</span>
+    <div class="pagination-actions">
+      <button class="secondary compact" type="button" data-ranking-page="prev" ${state.contentRankingPage <= 1 ? 'disabled' : ''}>上一页</button>
+      <button class="secondary compact" type="button" data-ranking-page="next" ${state.contentRankingPage >= totalPages ? 'disabled' : ''}>下一页</button>
+    </div>
+  `
+}
+
+function renderContentRankingModal() {
+  if (!contentRankingModalRowsEl) return
+  const rows = rankedContents()
+  const totalPages = Math.max(1, Math.ceil(rows.length / CONTENT_RANKING_PAGE_SIZE))
+  state.contentRankingPage = Math.min(Math.max(1, state.contentRankingPage), totalPages)
+
+  if (!rows.length) {
+    contentRankingModalRowsEl.innerHTML = '<tr><td colspan="6" class="empty-state">暂无内容数据</td></tr>'
+    renderContentRankingPagination(0)
+    return
+  }
+
+  const pageStart = (state.contentRankingPage - 1) * CONTENT_RANKING_PAGE_SIZE
+  const pageRows = rows.slice(pageStart, pageStart + CONTENT_RANKING_PAGE_SIZE)
+  contentRankingModalRowsEl.innerHTML = pageRows
+    .map((item, index) => contentRankingModalRow(item, pageStart + index))
+    .join('')
+  renderContentRankingPagination(rows.length)
+}
+
+function openContentRankingModal() {
+  if (!contentRankingModal) return
+  state.contentRankingPage = 1
+  renderContentRankingModal()
+  contentRankingModal.hidden = false
+}
+
+function closeContentRankingModal() {
+  if (contentRankingModal) contentRankingModal.hidden = true
 }
 
 function contentCard(item, mode = 'content') {
@@ -358,17 +671,250 @@ function contentCard(item, mode = 'content') {
     `
 }
 
-function renderContents() {
-  contentCountEl.textContent = `${state.contents.length} 条已发布内容`
+function fileExtension(path) {
+  const name = String(path || '')
+  const match = name.match(/\.([a-z0-9]+)(?:$|\?)/i)
+  return match ? match[1].toUpperCase() : ''
+}
 
-  if (!state.contents.length) {
-    contentListEl.innerHTML = '<div class="empty-state">暂无已发布内容，请先在素材审核中发布素材。</div>'
+function contentTableRow(item) {
+  return `
+      <tr data-content-id="${item.id}">
+        <td>
+          <div class="content-title">${escapeHtml(item.title)}</div>
+          <div class="content-meta">${escapeHtml(item.summary || '')}</div>
+        </td>
+        <td><span class="format-pill">${escapeHtml(fileExtension(item.file_path) || typeLabel(item.content_type))}</span></td>
+        <td>${escapeHtml(item.grade || '不限年级')}</td>
+        <td>${escapeHtml(item.subject || '-')}</td>
+        <td><span class="content-status">${item.is_published ? '已发布' : '未发布'}</span></td>
+        <td>
+          <div class="content-meta">领取 ${formatNumber(item.claim_count)} · 分享 ${formatNumber(item.share_count)}</div>
+          <div class="content-meta">线索 ${formatNumber(item.lead_count)} · ${escapeHtml(unlockLabel(item))}</div>
+        </td>
+        <td>
+          <div class="content-actions table-actions">
+            ${item.file_path ? `<a href="/files/${escapeHtml(item.file_path)}" target="_blank" rel="noreferrer">查看</a>` : ''}
+            <button type="button" data-content-action="edit" data-content-id="${item.id}">编辑</button>
+            <button class="danger" type="button" data-content-action="delete" data-content-id="${item.id}">删除</button>
+          </div>
+        </td>
+      </tr>
+    `
+}
+
+function uniqueContentValues(key) {
+  return [...new Set(state.contents.map((item) => readableText(item[key] || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'zh-CN'))
+}
+
+function renderContentFilterOptions() {
+  if (!contentSubjectFilter || !contentGradeFilter) return
+  const selectedSubject = state.contentFilters.subject
+  const selectedGrade = state.contentFilters.grade
+
+  contentSubjectFilter.innerHTML = `
+    <option value="">全部学科</option>
+    ${taxonomyOptions('subjects').map((subject) => `<option value="${escapeHtml(subject)}">${escapeHtml(subject)}</option>`).join('')}
+  `
+  contentGradeFilter.innerHTML = `
+    <option value="">全部年级</option>
+    ${taxonomyOptions('grades').map((grade) => `<option value="${escapeHtml(grade)}">${escapeHtml(grade)}</option>`).join('')}
+  `
+
+  contentSubjectFilter.value = taxonomyOptions('subjects').includes(selectedSubject) ? selectedSubject : ''
+  contentGradeFilter.value = taxonomyOptions('grades').includes(selectedGrade) ? selectedGrade : ''
+  state.contentFilters.subject = contentSubjectFilter.value
+  state.contentFilters.grade = contentGradeFilter.value
+}
+
+function filteredContents() {
+  const title = state.contentFilters.title.trim().toLowerCase()
+  return state.contents.filter((item) => {
+    const itemTitle = readableText(item.title || '').toLowerCase()
+    const matchesTitle = !title || itemTitle.includes(title)
+    const matchesSubject = !state.contentFilters.subject || readableText(item.subject || '') === state.contentFilters.subject
+    const matchesGrade = !state.contentFilters.grade || readableText(item.grade || '') === state.contentFilters.grade
+    const matchesFormat = !state.contentFilters.format || item.content_type === state.contentFilters.format
+    return matchesTitle && matchesSubject && matchesGrade && matchesFormat
+  })
+}
+
+function renderContentPagination(total) {
+  if (!contentPaginationEl) return
+  const totalPages = Math.max(1, Math.ceil(total / CONTENT_PAGE_SIZE))
+  state.contentPage = Math.min(Math.max(1, state.contentPage), totalPages)
+
+  if (!total) {
+    contentPaginationEl.innerHTML = ''
     return
   }
 
-  contentListEl.innerHTML = state.contents
-    .map((item) => contentCard(item))
-    .join('')
+  const start = (state.contentPage - 1) * CONTENT_PAGE_SIZE + 1
+  const end = Math.min(total, state.contentPage * CONTENT_PAGE_SIZE)
+  contentPaginationEl.innerHTML = `
+    <span class="pagination-summary">第 ${state.contentPage} / ${totalPages} 页 · 显示 ${start}-${end} 条，共 ${total} 条</span>
+    <div class="pagination-actions">
+      <button class="secondary compact" type="button" data-content-page="prev" ${state.contentPage <= 1 ? 'disabled' : ''}>上一页</button>
+      <button class="secondary compact" type="button" data-content-page="next" ${state.contentPage >= totalPages ? 'disabled' : ''}>下一页</button>
+    </div>
+  `
+}
+
+function renderTaxonomyGroups() {
+  if (!taxonomyGroupsEl) return
+  const groups = ['subject', 'grade', 'problem_category', 'problem']
+  const activeType = groups.includes(state.taxonomyActiveType) ? state.taxonomyActiveType : 'problem'
+  const allActiveTypeTags = state.taxonomyTags.filter((tag) => tag.tag_type === activeType)
+  const categoryId = state.taxonomyActiveProblemCategoryId
+  const activeTags = activeType === 'problem' && categoryId !== 'all'
+    ? allActiveTypeTags.filter((tag) => String(tag.parent_id || '') === String(categoryId))
+    : allActiveTypeTags
+  const taxonomyTotalPages = Math.max(1, Math.ceil(activeTags.length / TAXONOMY_PAGE_SIZE))
+  if (activeType !== 'problem') {
+    state.taxonomyPage = 1
+  } else {
+    state.taxonomyPage = Math.min(Math.max(1, state.taxonomyPage), taxonomyTotalPages)
+  }
+  const visibleTags = activeType === 'problem'
+    ? activeTags.slice((state.taxonomyPage - 1) * TAXONOMY_PAGE_SIZE, state.taxonomyPage * TAXONOMY_PAGE_SIZE)
+    : activeTags
+  const tabs = groups.map((type) => {
+    const count = state.taxonomyTags.filter((tag) => tag.tag_type === type && tag.is_active).length
+    return `
+      <button class="taxonomy-tab ${activeType === type ? 'active' : ''}" type="button" data-taxonomy-tab="${type}">
+        <span>${taxonomyTypeLabels[type]}</span>
+        <strong>${count}</strong>
+      </button>
+    `
+  }).join('')
+  const categoryTabs = activeType === 'problem'
+    ? `
+      <div class="taxonomy-category-tabs">
+        <button class="${categoryId === 'all' ? 'active' : ''}" type="button" data-problem-category-filter="all">全部</button>
+        ${state.taxonomyTags.filter((tag) => tag.tag_type === 'problem_category').map((category) => {
+          const count = state.taxonomyTags.filter((tag) => tag.tag_type === 'problem' && tag.parent_id === category.id && tag.is_active).length
+          return `<button class="${String(categoryId) === String(category.id) ? 'active' : ''} ${category.is_active ? '' : 'inactive'}" type="button" data-problem-category-filter="${category.id}">${escapeHtml(category.label)} ${count}</button>`
+        }).join('')}
+      </div>
+    `
+    : ''
+  const body = visibleTags.length
+    ? visibleTags.map((tag) => `
+      <span class="taxonomy-tag ${tag.is_active ? 'active' : 'inactive'}">
+        <span class="taxonomy-tag-name">${escapeHtml(tag.label)}</span>
+        ${activeType === 'problem' ? `<span class="taxonomy-tag-parent">${escapeHtml(state.taxonomyTags.find((item) => item.tag_type === 'problem_category' && item.id === tag.parent_id)?.label || '未分类')}</span>` : ''}
+        <button class="taxonomy-icon-button" type="button" title="改名" aria-label="改名" data-taxonomy-edit="${tag.id}" data-taxonomy-type="${tag.tag_type}" data-taxonomy-label="${escapeHtml(tag.label)}">✎</button>
+        <button class="taxonomy-icon-button delete" type="button" title="删除" aria-label="删除" data-taxonomy-delete="${tag.id}" data-taxonomy-type="${tag.tag_type}" data-taxonomy-label="${escapeHtml(tag.label)}">❌</button>
+      </span>
+    `).join('')
+    : '<span class="empty-inline">暂无标签</span>'
+  const pagination = activeType === 'problem' && activeTags.length > TAXONOMY_PAGE_SIZE
+    ? `
+      <div class="taxonomy-pagination">
+        <span class="pagination-summary">第 ${state.taxonomyPage} / ${taxonomyTotalPages} 页 · 共 ${activeTags.length} 个问题</span>
+        <div class="pagination-actions">
+          <button class="secondary compact" type="button" data-taxonomy-page="prev" ${state.taxonomyPage <= 1 ? 'disabled' : ''}>上一页</button>
+          <button class="secondary compact" type="button" data-taxonomy-page="next" ${state.taxonomyPage >= taxonomyTotalPages ? 'disabled' : ''}>下一页</button>
+        </div>
+      </div>
+    `
+    : ''
+
+  taxonomyGroupsEl.innerHTML = `
+    <div class="taxonomy-tabs">${tabs}</div>
+    <section class="taxonomy-current">
+      <div class="taxonomy-current-head">
+        <h3>当前：${taxonomyTypeLabels[activeType]}</h3>
+        <span>${activeTags.length} 个标签，${activeTags.filter((tag) => tag.is_active).length} 个启用</span>
+      </div>
+      ${categoryTabs}
+      <div class="taxonomy-tags">${body}</div>
+      ${pagination}
+    </section>
+  `
+  populateTaxonomyParentSelect()
+}
+
+function openTaxonomyActionModal(action, tag) {
+  if (!taxonomyActionModal || !taxonomyActionForm) return
+  const label = tag.label || ''
+  taxonomyActionForm.reset()
+  taxonomyActionForm.elements.action.value = action
+  taxonomyActionForm.elements.tag_id.value = tag.id
+  taxonomyActionForm.elements.tag_type.value = tag.tag_type
+  taxonomyActionForm.elements.label.value = label
+  taxonomyActionMessage.textContent = ''
+  taxonomyActionMessage.className = 'form-message'
+  taxonomyActionForm.classList.toggle('is-delete', action === 'delete')
+  taxonomyActionLabelField.hidden = action !== 'edit'
+  taxonomyConfirmText.hidden = action !== 'delete'
+  if (action === 'edit') {
+    taxonomyActionTitle.textContent = '修改标签'
+    taxonomyActionHint.textContent = `当前：${label}`
+    taxonomyConfirmText.textContent = ''
+    submitTaxonomyActionModalButton.textContent = '保存修改'
+    submitTaxonomyActionModalButton.className = 'primary compact'
+    setTimeout(() => taxonomyActionForm.elements.label.focus(), 0)
+  } else {
+    taxonomyActionTitle.textContent = '删除标签'
+    taxonomyActionHint.textContent = '该操作会立即生效'
+    taxonomyConfirmText.innerHTML = `<span>确认删除</span><strong>${escapeHtml(label)}</strong><small>删除后会从后台下拉选项中移除。</small>`
+    submitTaxonomyActionModalButton.textContent = '确认删除'
+    submitTaxonomyActionModalButton.className = 'danger-action compact'
+  }
+  taxonomyActionModal.hidden = false
+}
+
+function closeTaxonomyActionModal() {
+  if (taxonomyActionModal) taxonomyActionModal.hidden = true
+}
+
+function renderContents() {
+  const rows = filteredContents()
+  contentCountEl.textContent = rows.length === state.contents.length
+    ? `${state.contents.length} 条已发布内容`
+    : `${rows.length} / ${state.contents.length} 条已发布内容`
+  contentListEl.classList.add('is-table')
+
+  if (!state.contents.length) {
+    contentListEl.innerHTML = '<div class="empty-state">暂无已发布内容，请先在素材审核中发布素材。</div>'
+    renderContentPagination(0)
+    return
+  }
+
+  if (!rows.length) {
+    contentListEl.innerHTML = '<div class="empty-state">没有符合筛选条件的内容</div>'
+    renderContentPagination(0)
+    return
+  }
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / CONTENT_PAGE_SIZE))
+  state.contentPage = Math.min(Math.max(1, state.contentPage), totalPages)
+  const pageStart = (state.contentPage - 1) * CONTENT_PAGE_SIZE
+  const pageRows = rows.slice(pageStart, pageStart + CONTENT_PAGE_SIZE)
+
+  contentListEl.innerHTML = `
+    <div class="table-wrap content-table-wrap">
+      <table class="content-table">
+        <thead>
+          <tr>
+            <th>内容名称</th>
+            <th>格式</th>
+            <th>年级</th>
+            <th>学科</th>
+            <th>状态</th>
+            <th>数据</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pageRows.map((item) => contentTableRow(item)).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+  renderContentPagination(rows.length)
 }
 
 function renderReview() {
@@ -399,7 +945,7 @@ function topPreference(key, fallback) {
 
 function renderProductionTips() {
   const subject = topPreference('subjects', '语文')
-  const problem = topPreference('problems', '识字阅读')
+  const problem = topPreference('problems', '识字少')
   const type = typeLabel(topPreference('content_types', 'pdf')).toUpperCase()
   const top = bestContent()
   const suggestion = state.suggestions[0]
@@ -472,7 +1018,7 @@ function renderFunnel() {
 function renderOpportunities() {
   if (!opportunityListEl) return
   const subjects = normalizePreferenceItems(state.preferences?.subjects, ['语文', '数学', '专注力'])
-  const problems = normalizePreferenceItems(state.preferences?.problems, ['识字阅读', '数学计算', '注意力不集中'])
+  const problems = normalizePreferenceItems(state.preferences?.problems, ['识字少', '计算慢', '注意力不集中'])
   const rows = problems.slice(0, 3).map((problem, index) => ({
     title: `${readableText(subjects[index % subjects.length]?.label || '语文')} · ${readableText(problem.label)}专题`,
     meta: index === 0 ? '建议做成PDF领取页，并绑定5分钟测评' : '建议拆成图片卡片和训练营打卡任务',
@@ -521,23 +1067,80 @@ function renderActivity() {
   `).join('')
 }
 
-function renderFollowUser() {
-  const subject = topPreference('subjects', '语文')
-  const problem = topPreference('problems', '识字阅读')
-  const type = typeLabel(topPreference('content_types', 'pdf')).toUpperCase()
-  const top = bestContent()
+function timestamp(value) {
+  const time = new Date(value || 0).getTime()
+  return Number.isNaN(time) ? 0 : time
+}
 
-  if (followTagsEl) followTagsEl.textContent = `${subject} · ${problem} · ${type}`
-  if (followActionEl) {
-    const claimed = top?.claim_count ?? state.dashboard?.claimed ?? 0
-    followActionEl.textContent = `下载 ${Math.max(1, claimed)} 份资料 · 完成${subject}测评`
+function recommendedFollowUser() {
+  const source = state.recommendedUsers.length ? state.recommendedUsers : state.users
+  return [...source].sort((a, b) => {
+    const scoreDiff = (b.intent_score || 0) - (a.intent_score || 0)
+    if (scoreDiff) return scoreDiff
+    return timestamp(b.last_active_at || b.registered_at) - timestamp(a.last_active_at || a.registered_at)
+  })[0]
+}
+
+function followProfileText(user) {
+  return [user.child_age ? `${user.child_age}岁` : '', user.child_grade]
+    .filter(Boolean)
+    .join(' · ') || '-'
+}
+
+function followBehaviorText(user) {
+  const actions = [
+    user.download_count ? `下载 ${formatNumber(user.download_count)} 份资料` : '',
+    user.claim_count ? `领取 ${formatNumber(user.claim_count)} 份资料` : '',
+    user.share_count ? `分享 ${formatNumber(user.share_count)} 次` : '',
+    user.assessment_count ? `完成 ${formatNumber(user.assessment_count)} 次测评` : '',
+    user.camp_count ? `参与 ${formatNumber(user.camp_count)} 个训练营` : ''
+  ].filter(Boolean)
+  return actions.slice(0, 2).join(' · ') || '暂无近期行为'
+}
+
+function renderParentAvatar(user) {
+  if (!followUserAvatarEl) return
+  const fallback = escapeHtml(displayName(user).slice(0, 1))
+  followUserAvatarEl.innerHTML = user.avatar_url
+    ? `<img src="${escapeHtml(user.avatar_url)}" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false" /><span hidden>${fallback}</span>`
+    : `<span>${fallback}</span>`
+}
+
+function renderFollowUser() {
+  const user = recommendedFollowUser()
+  if (!user) {
+    if (followUserAvatarEl) followUserAvatarEl.innerHTML = '<span>-</span>'
+    if (followUserNameEl) followUserNameEl.textContent = '暂无推荐用户'
+    if (followUserProfileEl) followUserProfileEl.textContent = '-'
+    if (followIntentTagsEl) followIntentTagsEl.innerHTML = '<span class="tag">暂无数据</span>'
+    if (followTagsEl) followTagsEl.textContent = '-'
+    if (followActionEl) followActionEl.textContent = '-'
+    if (followAdviceEl) followAdviceEl.textContent = '-'
+    if (followLastActiveEl) followLastActiveEl.textContent = '-'
+    if (viewFollowUserDetailButton) viewFollowUserDetailButton.removeAttribute('data-user-id')
+    return
   }
-  if (followAdviceEl) followAdviceEl.textContent = `推送${subject}训练营 + ${problem}提升计划`
+
+  renderParentAvatar(user)
+  if (followUserNameEl) followUserNameEl.textContent = displayName(user)
+  if (followUserProfileEl) followUserProfileEl.textContent = followProfileText(user)
+  if (followIntentTagsEl) {
+    const isActive = timestamp(user.last_active_at) > 0 || (user.claim_count || user.download_count || user.share_count || user.assessment_count || user.camp_count) > 0
+    followIntentTagsEl.innerHTML = `
+      <span class="tag">${isActive ? '活跃用户' : '新注册用户'}</span>
+      <span class="tag orange">${escapeHtml(intentLabel(user.intent_level))}</span>
+    `
+  }
+  if (followTagsEl) followTagsEl.textContent = (user.tags || []).slice(0, 3).join(' · ') || '暂无偏好标签'
+  if (followActionEl) followActionEl.textContent = followBehaviorText(user)
+  if (followAdviceEl) followAdviceEl.textContent = user.recommended_action || '发送入门资料'
+  if (followLastActiveEl) followLastActiveEl.textContent = formatDateTime(user.last_active_at || user.registered_at)
+  if (viewFollowUserDetailButton) viewFollowUserDetailButton.dataset.userId = user.user_id
 }
 
 function renderInsightCard() {
   const subject = topPreference('subjects', '语文')
-  const problem = topPreference('problems', '识字')
+  const problem = topPreference('problems', '识字少')
   const age = topPreference('ages', '7')
   const dashboard = state.dashboard || {}
   const shareRate = dashboard.claimed ? Math.round(((dashboard.shared || 0) / dashboard.claimed) * 100) : 0
@@ -635,20 +1238,31 @@ function displayName(user) {
   return readableText(user.nickname || `用户${user.user_id}`)
 }
 
+function userAvatarMarkup(user) {
+  const fallback = escapeHtml(displayName(user).slice(0, 1))
+  if (!user.avatar_url) return `<span class="user-avatar">${fallback}</span>`
+  return `
+    <span class="user-avatar has-image">
+      <img src="${escapeHtml(user.avatar_url)}" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false" />
+      <span class="user-avatar-fallback" hidden>${fallback}</span>
+    </span>
+  `
+}
+
 function renderUserProfiles() {
   if (!registeredUserCountEl || !userRowsEl || !followRankingEl) return
-  registeredUserCountEl.textContent = `${state.users.length} 位用户`
+  registeredUserCountEl.textContent = `${state.userTotal} 位用户`
 
-  const ranked = state.users.filter((user) => user.intent_score > 0).slice(0, 3)
+  const ranked = state.recommendedUsers.filter((user) => user.intent_score > 0).slice(0, 3)
   followRankingEl.innerHTML = ranked.length
     ? ranked.map((user, index) => `
       <article class="follow-rank-card">
         <div class="rank-card-head">
           <div class="rank-card-user">
-            <span class="user-avatar">${index + 1}</span>
+            ${userAvatarMarkup(user)}
             <div>
               <strong>${escapeHtml(displayName(user))}</strong>
-              <span>${escapeHtml(user.source_channel || '-')} · ${escapeHtml(user.child_grade || '-')}</span>
+              <span>${escapeHtml(followProfileText(user))}</span>
             </div>
           </div>
           <span class="intent-badge ${escapeHtml(user.intent_level)}">${escapeHtml(intentLabel(user.intent_level))}</span>
@@ -668,15 +1282,13 @@ function renderUserProfiles() {
       <tr>
         <td>
           <div class="user-name">
-            <span class="user-avatar">${escapeHtml(displayName(user).slice(0, 1))}</span>
+            ${userAvatarMarkup(user)}
             <div>
               <strong>${escapeHtml(displayName(user))}</strong>
-              <span>${escapeHtml(user.open_id)} · 注册 ${escapeHtml(formatDateTime(user.registered_at))}</span>
             </div>
           </div>
         </td>
         <td>${escapeHtml(user.child_age ?? '-')}岁 · ${escapeHtml(user.child_grade || '-')}</td>
-        <td>${escapeHtml(user.source_channel || '-')}</td>
         <td>
           <div class="user-tags">
             ${(user.tags || []).slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('') || '<span class="behavior-pill">暂无标签</span>'}
@@ -691,6 +1303,7 @@ function renderUserProfiles() {
             <span class="behavior-pill">营 ${formatNumber(user.camp_count)}</span>
           </div>
         </td>
+        <td>${escapeHtml(formatDateTime(user.registered_at))}</td>
         <td>
           <span class="intent-badge ${escapeHtml(user.intent_level)}">${escapeHtml(intentLabel(user.intent_level))}</span>
           <div class="content-meta">${escapeHtml(user.recommended_action)} · ${formatNumber(user.intent_score)}分</div>
@@ -698,6 +1311,29 @@ function renderUserProfiles() {
       </tr>
     `).join('')
     : '<tr><td colspan="6" class="empty-state">暂无注册用户</td></tr>'
+  renderUserPagination()
+}
+
+function renderUserPagination() {
+  if (!userPaginationEl) return
+  const total = state.userTotal
+  const totalPages = Math.max(1, Math.ceil(total / USER_PAGE_SIZE))
+  state.userPage = Math.min(Math.max(1, state.userPage), totalPages)
+
+  if (!total || total <= USER_PAGE_SIZE) {
+    userPaginationEl.innerHTML = ''
+    return
+  }
+
+  const start = (state.userPage - 1) * USER_PAGE_SIZE + 1
+  const end = Math.min(total, state.userPage * USER_PAGE_SIZE)
+  userPaginationEl.innerHTML = `
+    <span class="pagination-summary">第 ${state.userPage} / ${totalPages} 页 · 显示 ${start}-${end} 位，共 ${total} 位</span>
+    <div class="pagination-actions">
+      <button class="secondary compact" type="button" data-user-page="prev" ${state.userPage <= 1 ? 'disabled' : ''}>上一页</button>
+      <button class="secondary compact" type="button" data-user-page="next" ${state.userPage >= totalPages ? 'disabled' : ''}>下一页</button>
+    </div>
+  `
 }
 
 function renderGeneratedPreview() {
@@ -705,7 +1341,7 @@ function renderGeneratedPreview() {
   const title = formData.get('title') || '一年级孩子识字少，每天怎么练？'
   const tags = [
     formData.get('subject') || '语文',
-    formData.get('problem') || '识字',
+    formData.get('problem') || '识字少',
     `${formData.get('target_age_min') || 7}岁`,
     formData.get('grade') || '一年级',
     typeLabel(formData.get('content_type') || 'pdf'),
@@ -778,6 +1414,52 @@ function numberOrNull(value) {
   return value === '' || value === null ? null : Number(value)
 }
 
+function guessContentType(fileName) {
+  const extension = String(fileName || '').split('.').pop().toLowerCase()
+  if (extension === 'pdf') return 'pdf'
+  if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'].includes(extension)) return 'image'
+  if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(extension)) return 'video'
+  return 'pdf'
+}
+
+function guessGrade(fileName) {
+  const name = String(fileName || '')
+  const directGrade = name.match(/(幼小衔接|[一二三四五六]年级|[1-6]年级)/)
+  if (directGrade) {
+    return directGrade[1].replace(/^([1-6])年级$/, (_, grade) => `${'一二三四五六'[Number(grade) - 1]}年级`)
+  }
+
+  const transition = name.match(/([一二三四五六])升([一二三四五六])/)
+  if (transition) return `${transition[1]}升${transition[2]}`
+
+  return ''
+}
+
+function guessSubject(fileName) {
+  const name = String(fileName || '')
+  if (/英语|英文|字母/.test(name)) return '英语'
+  if (/数学|计算|加减法|口算|应用题|真题卷/.test(name)) return '数学'
+  if (/语文|拼音|识字|阅读|课文|作文|古诗/.test(name)) return '语文'
+  return ''
+}
+
+function titleFromFileName(fileName) {
+  return String(fileName || '').replace(/\.[^.]+$/, '').trim()
+}
+
+function applyFileGuess(file) {
+  if (!file?.name) return
+  const elements = uploadContentForm.elements
+  const title = titleFromFileName(file.name)
+  const grade = guessGrade(file.name)
+  const subject = guessSubject(file.name)
+
+  if (title) elements.title.value = title
+  elements.content_type.value = guessContentType(file.name)
+  if (grade) setTaxonomySelectValue(elements.grade, 'grades', '请选择年级', grade)
+  if (subject) setTaxonomySelectValue(elements.subject, 'subjects', '请选择学科', subject)
+}
+
 function openContentModal(item = null) {
   uploadContentForm.reset()
   setUploadMessage('')
@@ -785,9 +1467,9 @@ function openContentModal(item = null) {
   uploadContentForm.elements.content_id.value = item?.id || ''
   uploadContentForm.elements.title.value = item?.title || ''
   uploadContentForm.elements.content_type.value = item?.content_type || 'pdf'
-  uploadContentForm.elements.subject.value = item?.subject || ''
-  uploadContentForm.elements.problem.value = item?.problem || ''
-  uploadContentForm.elements.grade.value = item?.grade || ''
+  setTaxonomySelectValue(uploadContentForm.elements.subject, 'subjects', '请选择学科', item?.subject || '')
+  setTaxonomySelectValue(uploadContentForm.elements.problem, 'problems', '请选择问题', item?.problem || '')
+  setTaxonomySelectValue(uploadContentForm.elements.grade, 'grades', '请选择年级', item?.grade || '')
   uploadContentForm.elements.unlock_type.value = item?.unlock_type || 'free'
   uploadContentForm.elements.unlock_threshold.value = item?.unlock_threshold ?? 0
   uploadContentForm.elements.summary.value = item?.summary || ''
@@ -837,6 +1519,18 @@ async function loadDashboard() {
   renderDashboardExtras()
 }
 
+async function loadTaxonomy() {
+  const [tags, options] = await Promise.all([
+    request('/admin/taxonomy-tags'),
+    request('/admin/taxonomy-options')
+  ])
+  state.taxonomyTags = tags
+  state.taxonomyOptions = options
+  populateTaxonomySelects()
+  renderContentFilterOptions()
+  renderTaxonomyGroups()
+}
+
 async function loadPreferences() {
   state.preferences = await request(adminUrl('/admin/preferences'))
   renderPreferences()
@@ -851,14 +1545,23 @@ async function loadContents() {
   state.contents = published
   state.reviewContents = drafts
   renderRanking()
+  renderContentFilterOptions()
   renderContents()
   renderReview()
   renderDashboardExtras()
 }
 
 async function loadUsers() {
-  state.users = await request(adminUrl('/admin/users'))
+  const result = await request(adminUrl('/admin/users', {
+    page: state.userPage,
+    page_size: USER_PAGE_SIZE
+  }))
+  state.users = result.items || []
+  state.recommendedUsers = result.recommended || []
+  state.userTotal = result.total || 0
+  state.userPage = result.page || state.userPage
   renderUserProfiles()
+  renderFollowUser()
 }
 
 async function loadSuggestions() {
@@ -879,6 +1582,7 @@ async function refreshAll() {
   metricsEl.innerHTML = '<div class="empty-state">加载看板数据中...</div>'
   preferenceGroupsEl.innerHTML = '<div class="empty-state">加载偏好数据中...</div>'
   rankingRowsEl.innerHTML = '<tr><td colspan="5" class="empty-state">加载排行中...</td></tr>'
+  if (contentRankingRowsEl) contentRankingRowsEl.innerHTML = '<div class="empty-state">加载排行中...</div>'
   contentListEl.innerHTML = '<div class="empty-state">加载内容中...</div>'
   if (reviewListEl) reviewListEl.innerHTML = '<div class="empty-state">加载待审核素材中...</div>'
   if (followRankingEl) followRankingEl.innerHTML = '<div class="empty-state">加载推荐跟进榜单中...</div>'
@@ -889,12 +1593,14 @@ async function refreshAll() {
   if (activityListEl) activityListEl.innerHTML = '<div class="empty-state">加载近期动态中...</div>'
 
   try {
+    await loadTaxonomy()
     await Promise.all([loadDashboard(), loadPreferences(), loadContents(), loadUsers(), loadSuggestions(), loadAiLogs()])
   } catch (error) {
     const message = escapeHtml(error.message || '加载失败')
     metricsEl.innerHTML = `<div class="error-state">看板加载失败：${message}</div>`
     preferenceGroupsEl.innerHTML = '<div class="error-state">偏好数据加载失败</div>'
     rankingRowsEl.innerHTML = '<tr><td colspan="5" class="error-state">内容排行加载失败</td></tr>'
+    if (contentRankingRowsEl) contentRankingRowsEl.innerHTML = '<div class="error-state">内容排行加载失败</div>'
     contentListEl.innerHTML = '<div class="error-state">内容列表加载失败，请确认后端服务已启动。</div>'
     if (reviewListEl) reviewListEl.innerHTML = '<div class="error-state">素材审核列表加载失败</div>'
     if (followRankingEl) followRankingEl.innerHTML = '<div class="error-state">推荐跟进榜单加载失败</div>'
@@ -997,6 +1703,20 @@ contentModal.addEventListener('click', (event) => {
   if (event.target === contentModal) closeContentModal()
 })
 
+if (openContentRankingModalButton) {
+  openContentRankingModalButton.addEventListener('click', openContentRankingModal)
+}
+
+if (closeContentRankingModalButton) {
+  closeContentRankingModalButton.addEventListener('click', closeContentRankingModal)
+}
+
+if (contentRankingModal) {
+  contentRankingModal.addEventListener('click', (event) => {
+    if (event.target === contentRankingModal) closeContentRankingModal()
+  })
+}
+
 async function handleContentAction(event) {
   const actionButton = event.target.closest('[data-content-action]')
   if (!actionButton) return
@@ -1030,6 +1750,165 @@ async function handleContentAction(event) {
 contentListEl.addEventListener('click', handleContentAction)
 reviewListEl.addEventListener('click', handleContentAction)
 
+if (contentPaginationEl) {
+  contentPaginationEl.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-content-page]')
+    if (!button || button.disabled) return
+    state.contentPage += button.dataset.contentPage === 'next' ? 1 : -1
+    renderContents()
+  })
+}
+
+if (contentRankingPaginationEl) {
+  contentRankingPaginationEl.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-ranking-page]')
+    if (!button || button.disabled) return
+    state.contentRankingPage += button.dataset.rankingPage === 'next' ? 1 : -1
+    renderContentRankingModal()
+  })
+}
+
+if (userPaginationEl) {
+  userPaginationEl.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-user-page]')
+    if (!button || button.disabled) return
+    state.userPage += button.dataset.userPage === 'next' ? 1 : -1
+    await loadUsers()
+  })
+}
+
+if (taxonomyForm) {
+  taxonomyForm.addEventListener('change', () => {
+    state.taxonomyActiveType = taxonomyForm.elements.tag_type.value
+    renderTaxonomyGroups()
+  })
+
+  taxonomyForm.addEventListener('submit', async (event) => {
+    event.preventDefault()
+    const formData = new FormData(taxonomyForm)
+    const tagType = formData.get('tag_type')
+    await request('/admin/taxonomy-tags', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tag_type: tagType,
+        label: formData.get('label'),
+        parent_id: tagType === 'problem' ? Number(formData.get('parent_id')) : null
+      })
+    })
+    taxonomyForm.reset()
+    taxonomyForm.elements.tag_type.value = state.taxonomyActiveType
+    state.taxonomyPage = 1
+    await loadTaxonomy()
+  })
+}
+
+if (taxonomyGroupsEl) {
+  taxonomyGroupsEl.addEventListener('click', async (event) => {
+    const tabButton = event.target.closest('[data-taxonomy-tab]')
+    if (tabButton) {
+      state.taxonomyActiveType = tabButton.dataset.taxonomyTab
+      if (state.taxonomyActiveType !== 'problem') state.taxonomyActiveProblemCategoryId = 'all'
+      state.taxonomyPage = 1
+      if (taxonomyForm) taxonomyForm.elements.tag_type.value = state.taxonomyActiveType
+      renderTaxonomyGroups()
+      return
+    }
+    const categoryFilter = event.target.closest('[data-problem-category-filter]')
+    if (categoryFilter) {
+      state.taxonomyActiveProblemCategoryId = categoryFilter.dataset.problemCategoryFilter
+      state.taxonomyPage = 1
+      renderTaxonomyGroups()
+      return
+    }
+    const pageButton = event.target.closest('[data-taxonomy-page]')
+    if (pageButton && !pageButton.disabled) {
+      state.taxonomyPage += pageButton.dataset.taxonomyPage === 'next' ? 1 : -1
+      renderTaxonomyGroups()
+      return
+    }
+    const editButton = event.target.closest('[data-taxonomy-edit]')
+    if (editButton) {
+      openTaxonomyActionModal('edit', {
+        id: editButton.dataset.taxonomyEdit,
+        tag_type: editButton.dataset.taxonomyType,
+        label: editButton.dataset.taxonomyLabel || ''
+      })
+      return
+    }
+    const deleteButton = event.target.closest('[data-taxonomy-delete]')
+    if (deleteButton) {
+      openTaxonomyActionModal('delete', {
+        id: deleteButton.dataset.taxonomyDelete,
+        tag_type: deleteButton.dataset.taxonomyType,
+        label: deleteButton.dataset.taxonomyLabel || '该标签'
+      })
+      return
+    }
+    const button = event.target.closest('[data-taxonomy-id]')
+    if (!button) return
+    await request(`/admin/taxonomy-tags/${button.dataset.taxonomyType}/${button.dataset.taxonomyId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ is_active: button.dataset.taxonomyActive === 'true' })
+    })
+    await loadTaxonomy()
+  })
+}
+
+if (taxonomyActionForm) {
+  taxonomyActionForm.addEventListener('submit', async (event) => {
+    event.preventDefault()
+    const action = taxonomyActionForm.elements.action.value
+    const tagId = taxonomyActionForm.elements.tag_id.value
+    const tagType = taxonomyActionForm.elements.tag_type.value
+    taxonomyActionMessage.textContent = ''
+    taxonomyActionMessage.className = 'form-message'
+    try {
+      if (action === 'edit') {
+        const label = taxonomyActionForm.elements.label.value.trim()
+        if (!label) {
+          taxonomyActionMessage.textContent = '请输入标签名称'
+          taxonomyActionMessage.classList.add('is-error')
+          return
+        }
+        await request(`/admin/taxonomy-tags/${tagType}/${tagId}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ label })
+        })
+      } else {
+        await request(`/admin/taxonomy-tags/${tagType}/${tagId}`, {
+          method: 'DELETE'
+        })
+      }
+      closeTaxonomyActionModal()
+      await loadTaxonomy()
+    } catch (error) {
+      taxonomyActionMessage.textContent = error.message || '操作失败'
+      taxonomyActionMessage.classList.add('is-error')
+    }
+  })
+}
+
+if (closeTaxonomyActionModalButton) {
+  closeTaxonomyActionModalButton.addEventListener('click', closeTaxonomyActionModal)
+}
+
+if (cancelTaxonomyActionModalButton) {
+  cancelTaxonomyActionModalButton.addEventListener('click', closeTaxonomyActionModal)
+}
+
+if (taxonomyActionModal) {
+  taxonomyActionModal.addEventListener('click', (event) => {
+    if (event.target === taxonomyActionModal) closeTaxonomyActionModal()
+  })
+}
+
+uploadContentForm.elements.file.addEventListener('change', () => {
+  applyFileGuess(uploadContentForm.elements.file.files?.[0])
+})
+
 if (aiLogSearchButton) {
   aiLogSearchButton.addEventListener('click', loadAiLogs)
 }
@@ -1038,6 +1917,14 @@ if (aiLogRowsEl) {
   aiLogRowsEl.addEventListener('click', (event) => {
     const button = event.target.closest('[data-ai-log-id]')
     if (button) openAiLogModal(button.dataset.aiLogId)
+  })
+}
+
+if (viewFollowUserDetailButton) {
+  viewFollowUserDetailButton.addEventListener('click', () => {
+    window.history.replaceState(null, '', '#users')
+    setActiveView('users', '#users')
+    document.querySelector('#usersView')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
 }
 
@@ -1099,5 +1986,11 @@ refreshButton.addEventListener('click', refreshAll)
 
 bindNavigation()
 bindDateFilters()
+bindContentFilters()
+populateTaxonomySelects()
+setTaxonomySelectValue(form.elements.subject, 'subjects', '请选择学科', form.elements.subject.value || '语文')
+setTaxonomySelectValue(form.elements.grade, 'grades', '请选择年级', form.elements.grade.value || '一年级')
+setTaxonomySelectValue(form.elements.problem, 'problems', '请选择问题', form.elements.problem.value || '识字少')
+if (taxonomyForm) taxonomyForm.elements.tag_type.value = state.taxonomyActiveType
 renderGeneratedPreview()
 refreshAll()

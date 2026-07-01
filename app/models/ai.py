@@ -1,7 +1,6 @@
 from datetime import datetime
 
 from sqlalchemy import DateTime, Integer, JSON, String, Text
-from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -35,10 +34,10 @@ class AiModelCallLog(Base):
     http_method: Mapped[str] = mapped_column(String(20), default="POST")
     request_payload: Mapped[dict] = mapped_column(JSON, default=dict)
     response_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    prompt_text: Mapped[str | None] = mapped_column(LONGTEXT, nullable=True)
-    response_text: Mapped[str | None] = mapped_column(LONGTEXT, nullable=True)
+    prompt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    response_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(40), default="success", index=True)
-    error_message: Mapped[str | None] = mapped_column(LONGTEXT, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
     completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
     image_tokens: Mapped[int] = mapped_column(Integer, default=0)

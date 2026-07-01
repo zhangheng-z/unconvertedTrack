@@ -67,12 +67,44 @@
   gap: 16rpx;
 }
 
+.category-tabs {
+  display: flex;
+  gap: 14rpx;
+  margin-bottom: 18rpx;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.category-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 104rpx;
+  height: 56rpx;
+  padding: 0 22rpx;
+  border-radius: 999rpx;
+  background: #f2f6f4;
+  color: #52605d;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.category-tab.active {
+  background: #17212b;
+  color: #ffffff;
+}
+
 .age-row .option {
   min-width: 108rpx;
 }
 
+.grade-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .grade-row .option {
-  min-width: 160rpx;
+  min-width: 0;
 }
 
 .option {
@@ -100,6 +132,44 @@
 .concern-grid .option {
   min-width: 190rpx;
   justify-content: space-between;
+}
+
+.selected-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 14rpx;
+  margin-top: 20rpx;
+  padding: 18rpx;
+  border-radius: 18rpx;
+  background: #f7faf8;
+}
+
+.selected-label {
+  flex-shrink: 0;
+  color: #17212b;
+  font-size: 24rpx;
+  font-weight: 850;
+}
+
+.selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.selected-tag {
+  padding: 6rpx 14rpx;
+  border-radius: 999rpx;
+  background: #eaf8ef;
+  color: #07a348;
+  font-size: 22rpx;
+  font-weight: 800;
+}
+
+.selected-empty {
+  color: #8a95a3;
+  font-size: 23rpx;
+  line-height: 1.4;
 }
 
 .check-mark {
@@ -155,4 +225,3 @@
   font-size: 23rpx;
   text-align: center;
 }
-

@@ -2,16 +2,18 @@ from datetime import date, datetime, time, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import desc, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.models import Child, Content, ContentEvent, User, UserTag
+from app.models import Child, Content, ContentEvent, GradeTag, ProblemCategory, ProblemTag, SubjectTag, TaxonomyTag, User, UserTag
 from app.repositories.ai import AiRepository
 from app.repositories.contents import ContentRepository
 from app.schemas.admin import (
     AiModelCallLogDetail,
     AiModelCallLogListItem,
     AiTopicSuggestionResponse,
+    AdminUserPageResponse,
     AdminUserProfileResponse,
     ContentAdminResponse,
     ContentCreateRequest,
@@ -19,15 +21,39 @@ from app.schemas.admin import (
     DashboardOverview,
     PreferenceItem,
     PreferenceOverview,
+    TaxonomyOptionsResponse,
+    TaxonomyTagCreateRequest,
+    TaxonomyTagResponse,
+    TaxonomyTagUpdateRequest,
 )
 from app.utils.time import now
 
 
 class AdminService:
+    DEFAULT_TAXONOMY = {
+        "subject": ["语文", "数学", "英语", "编程"],
+        "grade": ["幼小衔接", "一年级", "二年级", "三年级", "四年级", "五年级", "六年级", "小升初"],
+        "problem_category": ["语文", "数学", "英语", "习惯", "情绪/适应"],
+        "problem": {
+            "语文": ["识字少", "拼音不熟", "阅读理解差", "写字慢", "看图写话不会写", "作文没思路", "幼小衔接"],
+            "数学": ["计算慢", "计算容易错", "口算薄弱", "应用题不会做", "审题不清", "数感弱"],
+            "英语": ["字母不熟", "单词记不住", "自然拼读薄弱", "听力跟不上", "口语不敢说", "阅读看不懂"],
+            "习惯": ["作业拖拉", "注意力不集中", "粗心马虎", "坐不住", "依赖家长陪写", "学习主动性差"],
+            "情绪/适应": ["畏难情绪", "考试紧张", "抗拒学习", "缺乏自信", "亲子沟通困难", "入学适应慢"],
+        },
+    }
+    TAXONOMY_MODELS = {
+        "subject": SubjectTag,
+        "grade": GradeTag,
+        "problem_category": ProblemCategory,
+        "problem": ProblemTag,
+    }
+
     def __init__(self, db: Session):
         self.db = db
         self.contents = ContentRepository(db)
         self.ai = AiRepository(db)
+        self._ensure_default_taxonomy()
 
     def create_content(self, payload: ContentCreateRequest) -> ContentAdminResponse:
         data = payload.model_dump(exclude={"tags"})
@@ -48,13 +74,40 @@ class AdminService:
         metrics = self.contents.content_metrics([content.id for content in contents], start_at, end_at)
         return [self._content_response(content, metrics.get(content.id, {})) for content in contents]
 
-    def user_profiles(self, start_date: date | None = None, end_date: date | None = None) -> list[AdminUserProfileResponse]:
+    def user_profiles(
+        self,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        page: int = 1,
+        page_size: int = 5,
+    ) -> AdminUserPageResponse:
         start_at, end_at = self._date_range(start_date, end_date)
-        users = list(self.db.scalars(select(User).order_by(desc(User.created_at))))
-        if not users:
-            return []
+        page = max(page, 1)
+        page_size = min(max(page_size, 1), 50)
+        total = self.db.scalar(select(func.count(User.id))) or 0
+        users = list(self.db.scalars(
+            select(User)
+            .order_by(desc(User.created_at), desc(User.id))
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ))
+        return AdminUserPageResponse(
+            items=self._user_profile_rows(users, start_at, end_at),
+            total=total,
+            page=page,
+            page_size=page_size,
+            recommended=self._recommended_user_profiles(start_at, end_at, 3),
+        )
 
+    def _user_profile_rows(
+        self,
+        users: list[User],
+        start_at: datetime,
+        end_at: datetime | None,
+    ) -> list[AdminUserProfileResponse]:
         user_ids = [user.id for user in users]
+        if not user_ids:
+            return []
         children = self._first_children(user_ids)
         tags = self._user_tags(user_ids)
         event_counts = self._user_event_counts(user_ids, start_at, end_at)
@@ -83,6 +136,7 @@ class AdminService:
                     user_id=user.id,
                     open_id=user.open_id,
                     nickname=user.nickname,
+                    avatar_url=user.avatar_url,
                     source_channel=user.source_channel,
                     child_age=child.age if child else None,
                     child_grade=child.grade if child else None,
@@ -107,7 +161,54 @@ class AdminService:
                     ),
                 )
             )
-        return sorted(rows, key=lambda row: (row.intent_score, row.last_active_at or row.registered_at), reverse=True)
+        return rows
+
+    def _recommended_user_profiles(
+        self,
+        start_at: datetime,
+        end_at: datetime | None,
+        limit: int,
+    ) -> list[AdminUserProfileResponse]:
+        event_types = {"claim", "download", "share", "assessment", "assessment_complete", "camp", "camp_signup", "training", "lead"}
+        stmt = (
+            select(ContentEvent.user_id, ContentEvent.event_type, func.count(ContentEvent.id))
+            .where(
+                ContentEvent.user_id.is_not(None),
+                ContentEvent.event_type.in_(event_types),
+                ContentEvent.created_at >= start_at,
+            )
+            .group_by(ContentEvent.user_id, ContentEvent.event_type)
+        )
+        if end_at is not None:
+            stmt = stmt.where(ContentEvent.created_at < end_at)
+        counts_by_user: dict[int, dict[str, int]] = {}
+        for user_id, event_type, count in self.db.execute(stmt).all():
+            counts_by_user.setdefault(user_id, {})[event_type] = count
+        scored = []
+        for user_id, counts in counts_by_user.items():
+            claim_count = counts.get("claim", 0)
+            download_count = counts.get("download", 0)
+            share_count = counts.get("share", 0)
+            assessment_count = counts.get("assessment", 0) + counts.get("assessment_complete", 0)
+            camp_count = counts.get("camp", 0) + counts.get("camp_signup", 0) + counts.get("training", 0)
+            lead_count = counts.get("lead", 0)
+            score = (
+                claim_count * 3
+                + download_count * 4
+                + share_count * 5
+                + assessment_count * 6
+                + camp_count * 8
+                + lead_count * 10
+            )
+            if score > 0:
+                scored.append((user_id, score))
+        top_ids = [user_id for user_id, _ in sorted(scored, key=lambda item: item[1], reverse=True)[:limit]]
+        if not top_ids:
+            return []
+        users = list(self.db.scalars(select(User).where(User.id.in_(top_ids))))
+        user_by_id = {user.id: user for user in users}
+        ordered_users = [user_by_id[user_id] for user_id in top_ids if user_id in user_by_id]
+        return self._user_profile_rows(ordered_users, start_at, end_at)
 
     def update_content(self, content_id: int, payload: ContentUpdateRequest) -> ContentAdminResponse:
         content = self._require_content(content_id)
@@ -133,19 +234,103 @@ class AdminService:
         self.contents.delete(content)
         self.db.commit()
 
+    def taxonomy_tags(self) -> list[TaxonomyTagResponse]:
+        rows: list[TaxonomyTagResponse] = []
+        for tag_type in ("subject", "grade", "problem_category", "problem"):
+            model = self.TAXONOMY_MODELS[tag_type]
+            tags = self.db.scalars(select(model).order_by(model.sort_order, model.id))
+            rows.extend(self._taxonomy_response(tag_type, tag) for tag in tags)
+        return rows
+
+    def taxonomy_options(self) -> TaxonomyOptionsResponse:
+        subject_rows = list(self.db.scalars(self._active_taxonomy_stmt(SubjectTag)))
+        grade_rows = list(self.db.scalars(self._active_taxonomy_stmt(GradeTag)))
+        category_rows = list(self.db.scalars(self._active_taxonomy_stmt(ProblemCategory)))
+        problem_rows = list(self.db.scalars(self._active_taxonomy_stmt(ProblemTag)))
+        problem_categories = []
+        for category in category_rows:
+            problem_categories.append({
+                "id": category.id,
+                "label": category.label,
+                "problems": [problem.label for problem in problem_rows if problem.category_id == category.id],
+            })
+        return TaxonomyOptionsResponse(
+            subjects=[tag.label for tag in subject_rows],
+            grades=[tag.label for tag in grade_rows],
+            problems=[tag.label for tag in problem_rows],
+            problem_categories=problem_categories,
+        )
+
+    def create_taxonomy_tag(self, payload: TaxonomyTagCreateRequest) -> TaxonomyTagResponse:
+        label = payload.label.strip()
+        if not label:
+            raise HTTPException(status_code=400, detail="label is required")
+        model = self._taxonomy_model(payload.tag_type)
+        parent_id = self._normalize_taxonomy_parent(payload.tag_type, payload.parent_id)
+        max_order_stmt = select(func.max(model.sort_order))
+        if payload.tag_type == "problem":
+            max_order_stmt = max_order_stmt.where(ProblemTag.category_id == parent_id)
+        max_order = self.db.scalar(
+            max_order_stmt
+        ) or 0
+        tag_data = {"label": label, "is_active": payload.is_active, "sort_order": max_order + 10}
+        if payload.tag_type == "problem":
+            tag_data["category_id"] = parent_id
+        tag = model(**tag_data)
+        self.db.add(tag)
+        try:
+            self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise HTTPException(status_code=409, detail="tag already exists") from exc
+        self.db.refresh(tag)
+        return self._taxonomy_response(payload.tag_type, tag)
+
+    def update_taxonomy_tag(
+        self,
+        tag_id: int,
+        payload: TaxonomyTagUpdateRequest,
+        tag_type: str | None = None,
+    ) -> TaxonomyTagResponse:
+        tag_type, tag = self._require_taxonomy_tag(tag_id, tag_type)
+        if tag is None:
+            raise HTTPException(status_code=404, detail="taxonomy tag not found")
+        if payload.label is not None:
+            label = payload.label.strip()
+            if not label:
+                raise HTTPException(status_code=400, detail="label is required")
+            tag.label = label
+        if "parent_id" in payload.model_fields_set:
+            parent_id = self._normalize_taxonomy_parent(tag_type, payload.parent_id)
+            if tag_type == "problem":
+                tag.category_id = parent_id
+        if payload.is_active is not None:
+            tag.is_active = payload.is_active
+        try:
+            self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise HTTPException(status_code=409, detail="tag already exists") from exc
+        self.db.refresh(tag)
+        return self._taxonomy_response(tag_type, tag)
+
+    def delete_taxonomy_tag(self, tag_id: int, tag_type: str) -> None:
+        tag_type, tag = self._require_taxonomy_tag(tag_id, tag_type)
+        if tag_type == "problem_category":
+            problems = self.db.scalars(select(ProblemTag).where(ProblemTag.category_id == tag.id)).all()
+            for problem in problems:
+                self.db.delete(problem)
+        self.db.delete(tag)
+        self.db.commit()
+
     def dashboard(self, start_date: date | None = None, end_date: date | None = None) -> DashboardOverview:
         start_at, end_at = self._date_range(start_date, end_date)
-        user_stmt = select(func.count(User.id)).where(User.created_at >= start_at)
-        if end_at is not None:
-            user_stmt = user_stmt.where(User.created_at < end_at)
-        new_users = self.db.scalar(user_stmt) or 0
+        current = self._dashboard_counts(start_at, end_at)
+        previous_start_at, previous_end_at = self._previous_date_range(start_at, end_at)
+        previous = self._dashboard_counts(previous_start_at, previous_end_at)
         return DashboardOverview(
-            new_users=new_users,
-            active_users=self.contents.active_user_count(start_at, end_at),
-            claimed=self.contents.event_count("claim", start_at, end_at),
-            downloaded=self.contents.event_count("download", start_at, end_at),
-            shared=self.contents.event_count("share", start_at, end_at),
-            leads=self.contents.event_count("lead", start_at, end_at),
+            **current,
+            changes={key: self._metric_change(current[key], previous[key]) for key in current},
         )
 
     def preferences(self, start_date: date | None = None, end_date: date | None = None) -> PreferenceOverview:
@@ -313,6 +498,210 @@ class AdminService:
         if share_count:
             return "引导邀请解锁"
         return "发送入门资料"
+
+    def _dashboard_counts(self, start_at: datetime, end_at: datetime | None) -> dict[str, int]:
+        user_stmt = select(func.count(User.id)).where(User.created_at >= start_at)
+        if end_at is not None:
+            user_stmt = user_stmt.where(User.created_at < end_at)
+        return {
+            "new_users": self.db.scalar(user_stmt) or 0,
+            "active_users": self.contents.active_user_count(start_at, end_at),
+            "claimed": self.contents.event_count("claim", start_at, end_at),
+            "downloaded": self.contents.event_count("download", start_at, end_at),
+            "shared": self.contents.event_count("share", start_at, end_at),
+            "leads": self.contents.event_count("lead", start_at, end_at),
+        }
+
+    def _ensure_default_taxonomy(self) -> None:
+        if self._has_taxonomy_rows():
+            self.db.commit()
+            return
+        self._migrate_legacy_taxonomy()
+        if self._has_taxonomy_rows():
+            self.db.commit()
+            return
+        for tag_type in ("subject", "grade"):
+            for index, label in enumerate(self.DEFAULT_TAXONOMY[tag_type], start=1):
+                self._ensure_simple_taxonomy_tag(self.TAXONOMY_MODELS[tag_type], label, index * 10)
+        category_by_label = {}
+        for index, label in enumerate(self.DEFAULT_TAXONOMY["problem_category"], start=1):
+            category_by_label[label] = self._ensure_simple_taxonomy_tag(ProblemCategory, label, index * 10)
+        old_common = self.db.scalar(
+            select(TaxonomyTag).where(TaxonomyTag.tag_type == "problem_category", TaxonomyTag.label == "常见")
+        )
+        if old_common is not None:
+            old_common.is_active = False
+        seen_problems = set()
+        for category_label, problems in self.DEFAULT_TAXONOMY["problem"].items():
+            category = category_by_label[category_label]
+            for index, label in enumerate(problems, start=1):
+                if label in seen_problems:
+                    continue
+                seen_problems.add(label)
+                self._ensure_problem_tag(label, category.id, index * 10)
+        self._assign_uncategorized_problems(category_by_label)
+        self.db.commit()
+
+    def _has_taxonomy_rows(self) -> bool:
+        for model in self.TAXONOMY_MODELS.values():
+            if self.db.scalar(select(func.count(model.id))) or 0:
+                return True
+        return False
+
+    def _ensure_simple_taxonomy_tag(self, model: type[SubjectTag] | type[GradeTag] | type[ProblemCategory], label: str, sort_order: int):
+        tag = self.db.scalar(select(model).where(model.label == label))
+        if tag is None:
+            tag = model(label=label, sort_order=sort_order)
+            self.db.add(tag)
+            self.db.flush()
+        return tag
+
+    def _ensure_problem_tag(self, label: str, category_id: int, sort_order: int) -> ProblemTag:
+        tag = self.db.scalar(select(ProblemTag).where(ProblemTag.label == label))
+        if tag is None:
+            tag = ProblemTag(label=label, category_id=category_id, sort_order=sort_order)
+            self.db.add(tag)
+            self.db.flush()
+        return tag
+
+    def _assign_uncategorized_problems(self, category_by_label: dict[str, ProblemCategory]) -> None:
+        problem_to_category = {
+            problem: category
+            for category, problems in self.DEFAULT_TAXONOMY["problem"].items()
+            for problem in problems
+        }
+        fallback = category_by_label.get("语文") or next(iter(category_by_label.values()), None)
+        active_category_ids = {category.id for category in category_by_label.values()}
+        rows = self.db.scalars(select(ProblemTag))
+        for tag in rows:
+            if tag.category_id in active_category_ids:
+                continue
+            category = category_by_label.get(problem_to_category.get(tag.label, ""), fallback)
+            if category is not None:
+                tag.category_id = category.id
+
+    def _migrate_legacy_taxonomy(self) -> None:
+        legacy_rows = list(self.db.scalars(select(TaxonomyTag).order_by(TaxonomyTag.sort_order, TaxonomyTag.id)))
+        if not legacy_rows:
+            return
+        legacy_categories = {
+            row.id: row.label
+            for row in legacy_rows
+            if row.tag_type == "problem_category"
+        }
+        category_by_label: dict[str, ProblemCategory] = {}
+        for row in legacy_rows:
+            if row.tag_type == "subject":
+                tag = self._ensure_simple_taxonomy_tag(SubjectTag, row.label, row.sort_order)
+            elif row.tag_type == "grade":
+                tag = self._ensure_simple_taxonomy_tag(GradeTag, row.label, row.sort_order)
+            elif row.tag_type == "problem_category":
+                tag = self._ensure_simple_taxonomy_tag(ProblemCategory, row.label, row.sort_order)
+                category_by_label[row.label] = tag
+            else:
+                continue
+            tag.is_active = row.is_active
+
+        for row in legacy_rows:
+            if row.tag_type != "problem":
+                continue
+            category_label = legacy_categories.get(row.parent_id)
+            category = category_by_label.get(category_label or "")
+            if category is None:
+                default_category = self._default_problem_category(row.label)
+                category = category_by_label.get(default_category)
+            if category is None:
+                category = self._ensure_simple_taxonomy_tag(ProblemCategory, "常见", 999)
+            tag = self._ensure_problem_tag(row.label, category.id, row.sort_order)
+            tag.is_active = row.is_active
+
+    def _normalize_taxonomy_parent(self, tag_type: str, parent_id: int | None) -> int | None:
+        if tag_type != "problem":
+            return None
+        if parent_id is None:
+            parent_id = self.db.scalar(
+                select(ProblemCategory.id)
+                .where(ProblemCategory.is_active.is_(True))
+                .order_by(ProblemCategory.sort_order, ProblemCategory.id)
+            )
+        category = self.db.get(ProblemCategory, parent_id) if parent_id is not None else None
+        if category is None:
+            raise HTTPException(status_code=400, detail="problem category is required")
+        return category.id
+
+    @staticmethod
+    def _active_taxonomy_stmt(model):
+        return select(model).where(model.is_active.is_(True)).order_by(model.sort_order, model.id)
+
+    def _taxonomy_model(self, tag_type: str):
+        model = self.TAXONOMY_MODELS.get(tag_type)
+        if model is None:
+            raise HTTPException(status_code=400, detail="invalid taxonomy type")
+        return model
+
+    def _taxonomy_response(self, tag_type: str, tag) -> TaxonomyTagResponse:
+        return TaxonomyTagResponse(
+            id=tag.id,
+            tag_type=tag_type,
+            label=tag.label,
+            parent_id=tag.category_id if tag_type == "problem" else None,
+            is_active=tag.is_active,
+            sort_order=tag.sort_order,
+        )
+
+    def _require_taxonomy_tag(self, tag_id: int, tag_type: str | None = None):
+        if tag_type is not None:
+            model = self._taxonomy_model(tag_type)
+            tag = self.db.get(model, tag_id)
+            if tag is None:
+                raise HTTPException(status_code=404, detail="taxonomy tag not found")
+            return tag_type, tag
+
+        matches = []
+        for current_type, model in self.TAXONOMY_MODELS.items():
+            tag = self.db.get(model, tag_id)
+            if tag is not None:
+                matches.append((current_type, tag))
+        if not matches:
+            raise HTTPException(status_code=404, detail="taxonomy tag not found")
+        if len(matches) > 1:
+            raise HTTPException(status_code=400, detail="taxonomy type is required")
+        return matches[0]
+
+    def _default_problem_category(self, problem_label: str) -> str:
+        for category, problems in self.DEFAULT_TAXONOMY["problem"].items():
+            if problem_label in problems:
+                return category
+        return "语文"
+
+    @staticmethod
+    def _previous_date_range(start_at: datetime, end_at: datetime | None) -> tuple[datetime, datetime]:
+        current_end_at = end_at or now()
+        duration = current_end_at - start_at
+        if duration <= timedelta(0):
+            duration = timedelta(days=1)
+        previous_end_at = start_at
+        previous_start_at = previous_end_at - duration
+        return previous_start_at, previous_end_at
+
+    @staticmethod
+    def _metric_change(current: int, previous: int) -> dict[str, int | float | str]:
+        if previous == 0:
+            percent = 100.0 if current > 0 else 0.0
+        else:
+            percent = round(((current - previous) / previous) * 100, 1)
+        if current > previous:
+            direction = "up"
+        elif current < previous:
+            direction = "down"
+        else:
+            direction = "flat"
+        return {
+            "current": current,
+            "previous": previous,
+            "percent": percent,
+            "direction": direction,
+        }
 
     @staticmethod
     def _date_range(
