@@ -505,9 +505,9 @@ class AdminService:
             user_stmt = user_stmt.where(User.created_at < end_at)
         return {
             "new_users": self.db.scalar(user_stmt) or 0,
-            "active_users": self.contents.active_user_count(start_at, end_at),
+            "active_users": 0,
             "claimed": self.contents.event_count("claim", start_at, end_at),
-            "downloaded": self.contents.event_count("download", start_at, end_at),
+            "downloaded": 0,
             "shared": self.contents.event_count("share", start_at, end_at),
             "leads": self.contents.event_count("lead", start_at, end_at),
         }

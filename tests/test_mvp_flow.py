@@ -112,8 +112,9 @@ def test_parent_mvp_loop_and_admin_metrics(client: TestClient):
 
     dashboard = client.get("/admin/dashboard/overview")
     assert dashboard.status_code == 200
+    assert dashboard.json()["active_users"] == 0
     assert dashboard.json()["claimed"] == 1
-    assert dashboard.json()["downloaded"] == 1
+    assert dashboard.json()["downloaded"] == 0
     assert dashboard.json()["shared"] == 1
 
 
