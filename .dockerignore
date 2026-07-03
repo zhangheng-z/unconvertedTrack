@@ -8,7 +8,8 @@ __pycache__/
 .env.*
 !.env.example
 tmp/
-storage/files/
+storage/
+shiqu_data/
 docker/
 tests/
 miniprogram/

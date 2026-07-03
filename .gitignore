@@ -7,5 +7,5 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 tmp/
-storage/files/*
-!storage/files/.gitkeep
+storage/
+shiqu_data/

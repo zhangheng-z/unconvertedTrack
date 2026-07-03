@@ -14,7 +14,7 @@ uvicorn app.main:app --reload
 默认使用 MySQL，连接信息在 `.env` 中拆分配置：
 
 ```env
-SQLITE_DATABASE_PATH=shiqu_data/app.db
+SQLITE_DATABASE_PATH=/shiqu_data/app.db
 LOCAL_FILE_ROOT=/shiqu_data/files
 ```
 
@@ -108,7 +108,7 @@ uvicorn app.main:app --reload
 The container deployment uses local SQLite by default. Persist runtime data under the ShiQu managed directory:
 
 ```env
-SQLITE_DATABASE_PATH=shiqu_data/app.db
+SQLITE_DATABASE_PATH=/shiqu_data/app.db
 LOCAL_FILE_ROOT=/shiqu_data/files
 ```
 

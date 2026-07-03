@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     database_url_override: str = Field(default="", alias="DATABASE_URL")
-    sqlite_database_path: str = "shiqu_data/app.db"
+    sqlite_database_path: str = "/shiqu_data/app.db"
     local_file_base_url: str = "http://localhost:8000/files"
     local_file_root: str = "/shiqu_data/files"
     wechat_app_id: str = ""
