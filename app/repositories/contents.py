@@ -42,7 +42,11 @@ class ContentRepository:
         if subject:
             stmt = stmt.where(Content.subject == subject)
         if problem:
-            stmt = stmt.where(Content.problem == problem)
+            tagged_content_ids = select(ContentTag.content_id).where(
+                ContentTag.tag_type == "problem",
+                ContentTag.tag_value == problem,
+            )
+            stmt = stmt.where(or_(Content.problem == problem, Content.id.in_(tagged_content_ids)))
         if content_type:
             stmt = stmt.where(Content.content_type == content_type)
         if sort == "latest":
@@ -80,8 +84,22 @@ class ContentRepository:
         self.db.flush()
 
     def replace_tags(self, content: Content, tags: list[str]) -> None:
-        self.db.query(ContentTag).filter(ContentTag.content_id == content.id).delete()
-        self.db.add_all(ContentTag(content_id=content.id, tag_type="custom", tag_value=tag) for tag in tags)
+        self.replace_tags_by_type(content, "custom", tags)
+
+    def replace_tags_by_type(self, content: Content, tag_type: str, tags: list[str]) -> None:
+        values = []
+        seen = set()
+        for tag in tags:
+            value = str(tag or "").strip()
+            if not value or value in seen:
+                continue
+            seen.add(value)
+            values.append(value)
+        self.db.query(ContentTag).filter(
+            ContentTag.content_id == content.id,
+            ContentTag.tag_type == tag_type,
+        ).delete()
+        self.db.add_all(ContentTag(content_id=content.id, tag_type=tag_type, tag_value=tag) for tag in values)
 
     def get_asset(self, user_id: int, content_id: int) -> UserContentAsset | None:
         return self.db.scalar(
@@ -147,7 +165,7 @@ class ContentRepository:
         if not content_ids:
             return {}
         metrics = {
-            content_id: {"claim_count": 0, "share_count": 0, "effective_share_count": 0, "lead_count": 0}
+            content_id: {"claim_count": 0, "download_count": 0, "share_count": 0, "effective_share_count": 0, "lead_count": 0}
             for content_id in content_ids
         }
         claim_stmt = (
@@ -158,6 +176,16 @@ class ContentRepository:
         claim_stmt = self._where_between(claim_stmt, UserContentAsset.created_at, start_at, end_at)
         for content_id, count in self.db.execute(claim_stmt).all():
             metrics[content_id]["claim_count"] = count
+
+        download_stmt = (
+            select(ContentEvent.content_id, func.count(func.distinct(ContentEvent.user_id)))
+            .where(ContentEvent.content_id.in_(content_ids), ContentEvent.event_type == "download")
+            .group_by(ContentEvent.content_id)
+        )
+        download_stmt = self._where_between(download_stmt, ContentEvent.created_at, start_at, end_at)
+        for content_id, count in self.db.execute(download_stmt).all():
+            if content_id is not None:
+                metrics[content_id]["download_count"] = count
 
         share_stmt = (
             select(ContentEvent.content_id, func.count(func.distinct(ContentEvent.user_id)))
@@ -258,6 +286,30 @@ class ContentRepository:
         stmt = self._where_between(stmt, ContentEvent.created_at, start_at, end_at)
         return self.db.scalar(stmt) or 0
 
+    def content_event_counts(
+        self,
+        content_ids: list[int],
+        event_types: set[str],
+        start_at: datetime,
+        end_at: datetime | None = None,
+    ) -> dict[int, dict[str, int]]:
+        if not content_ids:
+            return {}
+        stmt = (
+            select(ContentEvent.content_id, ContentEvent.event_type, func.count(ContentEvent.id))
+            .where(
+                ContentEvent.content_id.in_(content_ids),
+                ContentEvent.event_type.in_(event_types),
+            )
+            .group_by(ContentEvent.content_id, ContentEvent.event_type)
+        )
+        stmt = self._where_between(stmt, ContentEvent.created_at, start_at, end_at)
+        rows: dict[int, dict[str, int]] = {}
+        for content_id, event_type, count in self.db.execute(stmt).all():
+            if content_id is not None:
+                rows.setdefault(content_id, {})[event_type] = count
+        return rows
+
     def active_user_count(self, start_at: datetime, end_at: datetime | None = None) -> int:
         stmt = select(func.count(func.distinct(ContentEvent.user_id)))
         stmt = self._where_between(stmt, ContentEvent.created_at, start_at, end_at)
@@ -280,6 +332,37 @@ class ContentRepository:
         )
         stmt = self._where_between(stmt, ContentEvent.created_at, start_at, end_at)
         return [(str(key), count) for key, count in self.db.execute(stmt).all()]
+
+    def problem_preference_counts(
+        self,
+        start_at: datetime,
+        end_at: datetime | None = None,
+        limit: int = 10,
+    ) -> list[tuple[str, int]]:
+        tagged_stmt = (
+            select(ContentTag.tag_value, func.count(ContentEvent.id))
+            .join(Content, Content.id == ContentTag.content_id)
+            .join(ContentEvent, ContentEvent.content_id == Content.id)
+            .where(ContentTag.tag_type == "problem")
+            .group_by(ContentTag.tag_value)
+            .order_by(desc(func.count(ContentEvent.id)))
+            .limit(limit)
+        )
+        tagged_stmt = self._where_between(tagged_stmt, ContentEvent.created_at, start_at, end_at)
+        rows = [(str(key), count) for key, count in self.db.execute(tagged_stmt).all()]
+        if rows:
+            return rows
+
+        fallback_stmt = (
+            select(Content.problem, func.count(ContentEvent.id))
+            .join(ContentEvent, ContentEvent.content_id == Content.id)
+            .where(Content.problem.is_not(None))
+            .group_by(Content.problem)
+            .order_by(desc(func.count(ContentEvent.id)))
+            .limit(limit)
+        )
+        fallback_stmt = self._where_between(fallback_stmt, ContentEvent.created_at, start_at, end_at)
+        return [(str(key), count) for key, count in self.db.execute(fallback_stmt).all()]
 
     def age_counts(self, start_at: datetime, end_at: datetime | None = None, limit: int = 10) -> list[tuple[str, int]]:
         stmt = (

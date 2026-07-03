@@ -232,6 +232,7 @@ class ParentService:
             content_type=content.content_type,
             subject=content.subject,
             problem=content.problem,
+            problem_tags=cls._content_problem_tags(content),
             cover_url=content.cover_url,
             summary=content.summary,
             next_action=content.next_action,
@@ -245,3 +246,19 @@ class ParentService:
             effective_share_count=metrics.get("effective_share_count", 0),
             lead_count=metrics.get("lead_count", 0),
         )
+
+    @staticmethod
+    def _content_problem_tags(content) -> list[str]:
+        values = []
+        seen = set()
+        for tag in content.tags:
+            if tag.tag_type != "problem":
+                continue
+            value = str(tag.tag_value or "").strip()
+            if not value or value in seen:
+                continue
+            seen.add(value)
+            values.append(value)
+        if not values and content.problem:
+            values.append(content.problem)
+        return values

@@ -63,8 +63,11 @@ Page({
           camp: '训练营'
         }
         const state = this.primaryActionState(detail)
+        const problemTags = Array.isArray(detail.problem_tags) && detail.problem_tags.length
+          ? detail.problem_tags
+          : [detail.problem].filter(Boolean)
         this.setData({
-          detail,
+          detail: Object.assign({}, detail, { problemTags }),
           typeLabel: labels[detail.content_type] || '资料',
           claimCount: detail.claim_count || 0,
           shareCount: detail.share_count || 0,

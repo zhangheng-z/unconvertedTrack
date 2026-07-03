@@ -14,6 +14,9 @@ class AiRepository:
         stmt = select(AiTopicSuggestion).order_by(desc(AiTopicSuggestion.created_at)).limit(limit)
         return list(self.db.scalars(stmt))
 
+    def get_suggestion(self, suggestion_id: int) -> AiTopicSuggestion | None:
+        return self.db.get(AiTopicSuggestion, suggestion_id)
+
     def create_suggestion(self, title: str, target_audience: str, content_type: str, reason: str, metrics: dict) -> AiTopicSuggestion:
         suggestion = AiTopicSuggestion(
             title=title,
@@ -25,6 +28,16 @@ class AiRepository:
         self.db.add(suggestion)
         self.db.flush()
         return suggestion
+
+    def update_suggestion(self, suggestion: AiTopicSuggestion, values: dict) -> AiTopicSuggestion:
+        for key, value in values.items():
+            setattr(suggestion, key, value)
+        self.db.flush()
+        return suggestion
+
+    def delete_suggestion(self, suggestion: AiTopicSuggestion) -> None:
+        self.db.delete(suggestion)
+        self.db.flush()
 
     def create_model_call_log(self, **values) -> AiModelCallLog:
         log = AiModelCallLog(**values)

@@ -31,6 +31,22 @@ def init_db() -> None:
         if "parent_id" not in taxonomy_columns:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE taxonomy_tags ADD COLUMN parent_id INT NULL"))
+    if "content_tags" in inspector.get_table_names():
+        with engine.begin() as connection:
+            connection.execute(text("""
+                INSERT INTO content_tags (content_id, tag_type, tag_value)
+                SELECT contents.id, 'problem', contents.problem
+                FROM contents
+                WHERE contents.problem IS NOT NULL
+                  AND contents.problem != ''
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM content_tags
+                    WHERE content_tags.content_id = contents.id
+                      AND content_tags.tag_type = 'problem'
+                      AND content_tags.tag_value = contents.problem
+                  )
+            """))
 
 
 def create_app(create_tables: bool = True) -> FastAPI:

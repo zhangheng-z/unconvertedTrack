@@ -10,6 +10,8 @@ from app.models import Child, Content, ContentEvent, GradeTag, ProblemCategory, 
 from app.repositories.ai import AiRepository
 from app.repositories.contents import ContentRepository
 from app.schemas.admin import (
+    AiTopicSuggestionUpsertRequest,
+    AllowedTopicOptions,
     AiModelCallLogDetail,
     AiModelCallLogListItem,
     AiTopicSuggestionResponse,
@@ -25,7 +27,10 @@ from app.schemas.admin import (
     TaxonomyTagCreateRequest,
     TaxonomyTagResponse,
     TaxonomyTagUpdateRequest,
+    TopicRecommendationContext,
+    TopicRelatedContent,
 )
+from app.services.llm import LlmContentGenerator, LlmGenerationError
 from app.utils.time import now
 
 
@@ -56,10 +61,13 @@ class AdminService:
         self._ensure_default_taxonomy()
 
     def create_content(self, payload: ContentCreateRequest) -> ContentAdminResponse:
-        data = payload.model_dump(exclude={"tags"})
+        problem_tags = self._normalize_problem_tags(payload.problem_tags, payload.problem)
+        data = payload.model_dump(exclude={"tags", "problem_tags"})
+        data["problem"] = problem_tags[0] if problem_tags else data.get("problem")
         data["unlock_type"] = self._normalize_unlock_type(data.get("unlock_type"))
         data["unlock_threshold"] = self._normalize_unlock_threshold(data["unlock_type"], data.get("unlock_threshold"))
         content = self.contents.create(data, payload.tags)
+        self.contents.replace_tags_by_type(content, "problem", problem_tags)
         self.db.commit()
         return self._content_response(content)
 
@@ -212,13 +220,20 @@ class AdminService:
 
     def update_content(self, content_id: int, payload: ContentUpdateRequest) -> ContentAdminResponse:
         content = self._require_content(content_id)
-        data = payload.model_dump(exclude={"tags"}, exclude_unset=True)
+        data = payload.model_dump(exclude={"tags", "problem_tags"}, exclude_unset=True)
+        should_update_problem_tags = "problem_tags" in payload.model_fields_set or "problem" in payload.model_fields_set
+        if should_update_problem_tags:
+            requested_tags = payload.problem_tags if "problem_tags" in payload.model_fields_set else None
+            problem_tags = self._normalize_problem_tags(requested_tags, data.get("problem"))
+            data["problem"] = problem_tags[0] if problem_tags else data.get("problem")
         if "unlock_type" in data:
             data["unlock_type"] = self._normalize_unlock_type(data.get("unlock_type"))
         if "unlock_type" in data or "unlock_threshold" in data:
             unlock_type = data.get("unlock_type", content.unlock_type)
             data["unlock_threshold"] = self._normalize_unlock_threshold(unlock_type, data.get("unlock_threshold", content.unlock_threshold))
         content = self.contents.update(content, data, payload.tags if "tags" in payload.model_fields_set else None)
+        if should_update_problem_tags:
+            self.contents.replace_tags_by_type(content, "problem", problem_tags)
         self.db.commit()
         return self._content_response(content)
 
@@ -338,16 +353,127 @@ class AdminService:
         return PreferenceOverview(
             ages=self._items(self.contents.age_counts(start_at, end_at)),
             subjects=self._items(self.contents.preference_counts(Content.subject, start_at, end_at)),
-            problems=self._items(self.contents.preference_counts(Content.problem, start_at, end_at)),
+            problems=self._items(self.contents.problem_preference_counts(start_at, end_at)),
             content_types=self._items(self.contents.preference_counts(Content.content_type, start_at, end_at)),
         )
 
     def topic_suggestions(self) -> list[AiTopicSuggestionResponse]:
-        existing = self.ai.list_recent()
+        existing = self._sort_topic_suggestions(self.ai.list_recent())[:4]
         if not existing:
             self.generate_topic_suggestions()
-            existing = self.ai.list_recent()
+            existing = self._sort_topic_suggestions(self.ai.list_recent())[:4]
         return [AiTopicSuggestionResponse.model_validate(item) for item in existing]
+
+    def create_topic_suggestion(self, payload: AiTopicSuggestionUpsertRequest) -> AiTopicSuggestionResponse:
+        data = self._topic_suggestion_payload(payload)
+        suggestion = self.ai.create_suggestion(
+            data["title"],
+            data["target_audience"],
+            data["content_type"],
+            data["reason"],
+            data["source_metrics"],
+        )
+        self.db.commit()
+        self.db.refresh(suggestion)
+        return AiTopicSuggestionResponse.model_validate(suggestion)
+
+    def update_topic_suggestion(self, suggestion_id: int, payload: AiTopicSuggestionUpsertRequest) -> AiTopicSuggestionResponse:
+        suggestion = self._require_topic_suggestion(suggestion_id)
+        data = self._topic_suggestion_payload(payload, suggestion.source_metrics or {})
+        suggestion = self.ai.update_suggestion(suggestion, data)
+        self.db.commit()
+        self.db.refresh(suggestion)
+        return AiTopicSuggestionResponse.model_validate(suggestion)
+
+    def delete_topic_suggestion(self, suggestion_id: int) -> None:
+        suggestion = self._require_topic_suggestion(suggestion_id)
+        self.ai.delete_suggestion(suggestion)
+        self.db.commit()
+
+    def topic_recommendation_context(self) -> TopicRecommendationContext:
+        start_at, end_at = self._date_range(None, None, get_settings().ai_topic_window_days)
+        preferences = self.preferences()
+        contents = self.contents.list_all(is_published=True)
+        content_ids = [content.id for content in contents]
+        metrics = self.contents.content_metrics(content_ids, start_at, end_at)
+        event_counts = self.contents.content_event_counts(content_ids, {"download", "share"}, start_at, end_at)
+        related_rows = []
+        for content in contents:
+            content_metrics = metrics.get(content.id, {})
+            counts = event_counts.get(content.id, {})
+            claim_count = content_metrics.get("claim_count", 0)
+            download_count = counts.get("download", 0)
+            share_count = counts.get("share", 0)
+            related_rows.append(
+                TopicRelatedContent(
+                    content_id=content.id,
+                    title=content.title,
+                    subject=content.subject,
+                    grade=content.grade,
+                    content_type=content.content_type,
+                    problem_tags=self._content_problem_tags(content),
+                    claim_count=claim_count,
+                    download_count=download_count,
+                    share_count=share_count,
+                    download_rate=self._rate(download_count, claim_count),
+                    share_rate=self._rate(share_count, claim_count),
+                )
+            )
+        related_rows.sort(key=lambda item: (item.claim_count + item.download_count * 2 + item.share_count * 2), reverse=True)
+        return TopicRecommendationContext(
+            preferences=preferences,
+            related_contents=related_rows[:12],
+            allowed_options=self._allowed_topic_options(),
+        )
+
+    def generate_ai_topic_suggestions(self) -> list[AiTopicSuggestionResponse]:
+        context = self.topic_recommendation_context().model_dump()
+        generator = LlmContentGenerator()
+        generator.set_trace_context(task_type="topic_suggestion")
+        try:
+            result = generator.generate_topic_suggestions(context)
+        except LlmGenerationError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        if result is None:
+            raise HTTPException(status_code=400, detail="AI topic generation requires VECTORENGINE_API_KEY")
+        created_count = 0
+        for item in result.suggestions:
+            if created_count >= 4:
+                break
+            try:
+                data = self._topic_suggestion_payload(
+                    AiTopicSuggestionUpsertRequest(
+                        title=item["title"],
+                        target_audience=item.get("target_audience") or "小学低年级家长",
+                        content_type=item.get("content_type") or "pdf",
+                        subject=item.get("subject") or "",
+                        grade=item.get("grade") or "",
+                        problem_tags=item.get("problem_tags", []),
+                        priority=item.get("priority") or "medium",
+                        reason=item.get("reason") or "基于热门偏好和内容表现生成。",
+                        next_action=item.get("next_action") or "",
+                    ),
+                    {
+                        "generation_source": "llm",
+                        "model": result.model,
+                        "context": context,
+                    },
+                )
+            except HTTPException:
+                continue
+            self.ai.create_suggestion(
+                data["title"],
+                data["target_audience"],
+                data["content_type"],
+                data["reason"],
+                data["source_metrics"],
+            )
+            created_count += 1
+        if created_count == 0:
+            raise HTTPException(status_code=502, detail="AI topic generation returned no valid suggestions")
+        self.db.commit()
+        rows = self._sort_topic_suggestions(self.ai.list_recent())[:4]
+        return [AiTopicSuggestionResponse.model_validate(item) for item in rows]
 
     def list_model_call_logs(
         self,
@@ -370,15 +496,91 @@ class AdminService:
     def generate_topic_suggestions(self) -> None:
         overview = self.preferences()
         metrics = overview.model_dump()
-        top_subject = overview.subjects[0].key if overview.subjects else "语文"
-        top_problem = overview.problems[0].key if overview.problems else "学习习惯"
+        allowed = self._allowed_topic_options()
+        top_subject = overview.subjects[0].key if overview.subjects else (allowed.subjects[0] if allowed.subjects else "")
+        top_problem = overview.problems[0].key if overview.problems else (allowed.problem_tags[0] if allowed.problem_tags else "")
+        top_grade = allowed.grades[0] if allowed.grades else ""
         top_age = overview.ages[0].key if overview.ages else "5-8"
         top_type = overview.content_types[0].key if overview.content_types else "pdf"
         title = f"{top_age}岁{top_subject}{top_problem}7天提升计划"
         target = f"{top_age}岁关注{top_problem}的家长"
         reason = "基于近7天用户筛选、点击、领取、下载和分享行为生成，优先覆盖当前最高频需求。"
-        self.ai.create_suggestion(title, target, top_type, reason, metrics)
+        data = self._topic_suggestion_payload(
+            AiTopicSuggestionUpsertRequest(
+                title=title,
+                target_audience=target,
+                content_type=top_type,
+                subject=top_subject,
+                grade=top_grade,
+                problem_tags=[top_problem] if top_problem else [],
+                priority="medium",
+                reason=reason,
+                next_action="AI内容生成",
+            ),
+            {"generation_source": "rule", "context": metrics},
+        )
+        self.ai.create_suggestion(data["title"], data["target_audience"], data["content_type"], data["reason"], data["source_metrics"])
         self.db.commit()
+
+    def _require_topic_suggestion(self, suggestion_id: int):
+        suggestion = self.ai.get_suggestion(suggestion_id)
+        if suggestion is None:
+            raise HTTPException(status_code=404, detail="topic suggestion not found")
+        return suggestion
+
+    def _sort_topic_suggestions(self, suggestions: list) -> list:
+        priority_order = {"high": 0, "medium": 1, "low": 2}
+        return sorted(
+            suggestions,
+            key=lambda item: (
+                priority_order.get((item.source_metrics or {}).get("priority"), 3),
+                -item.created_at.timestamp(),
+            ),
+        )
+
+    def _allowed_topic_options(self) -> AllowedTopicOptions:
+        options = self.taxonomy_options()
+        return AllowedTopicOptions(
+            subjects=options.subjects,
+            grades=options.grades,
+            problem_tags=options.problems,
+        )
+
+    def _topic_suggestion_payload(self, payload: AiTopicSuggestionUpsertRequest, base_metrics: dict | None = None) -> dict:
+        allowed = self._allowed_topic_options()
+        title = payload.title.strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="title is required")
+        subject = payload.subject.strip()
+        grade = payload.grade.strip()
+        content_type = payload.content_type.strip() or "pdf"
+        problem_tags = [tag.strip() for tag in payload.problem_tags if tag and tag.strip()]
+        invalid = []
+        if subject not in allowed.subjects:
+            invalid.append("subject")
+        if grade not in allowed.grades:
+            invalid.append("grade")
+        if content_type not in allowed.content_types:
+            invalid.append("content_type")
+        if not problem_tags or any(tag not in allowed.problem_tags for tag in problem_tags):
+            invalid.append("problem_tags")
+        if invalid:
+            raise HTTPException(status_code=400, detail=f"invalid topic fields: {', '.join(invalid)}")
+        metrics = dict(base_metrics or {})
+        metrics.update({
+            "subject": subject,
+            "grade": grade,
+            "problem_tags": list(dict.fromkeys(problem_tags)),
+            "priority": payload.priority.strip() or "medium",
+            "next_action": (payload.next_action or "").strip(),
+        })
+        return {
+            "title": title[:160],
+            "target_audience": (payload.target_audience or "小学低年级家长").strip()[:160],
+            "content_type": content_type,
+            "reason": (payload.reason or "基于热门偏好和内容表现生成。").strip(),
+            "source_metrics": metrics,
+        }
 
     def _require_content(self, content_id: int) -> Content:
         content = self.contents.get(content_id)
@@ -394,6 +596,7 @@ class AdminService:
             content_type=content.content_type,
             subject=content.subject,
             problem=content.problem,
+            problem_tags=self._content_problem_tags(content),
             target_age_min=content.target_age_min,
             target_age_max=content.target_age_max,
             grade=content.grade,
@@ -406,9 +609,41 @@ class AdminService:
             unlock_threshold=content.unlock_threshold or 0,
             is_published=content.is_published,
             claim_count=metrics.get("claim_count", 0),
+            download_count=metrics.get("download_count", 0),
             share_count=metrics.get("share_count", 0),
             lead_count=metrics.get("lead_count", 0),
         )
+
+    @staticmethod
+    def _normalize_problem_tags(problem_tags: list[str] | None, fallback_problem: str | None = None) -> list[str]:
+        values = list(problem_tags or [])
+        if not values and fallback_problem:
+            values = [fallback_problem]
+        result = []
+        seen = set()
+        for tag in values:
+            value = str(tag or "").strip()
+            if not value or value in seen:
+                continue
+            seen.add(value)
+            result.append(value)
+        return result
+
+    @staticmethod
+    def _content_problem_tags(content: Content) -> list[str]:
+        values = []
+        seen = set()
+        for tag in content.tags:
+            if tag.tag_type != "problem":
+                continue
+            value = str(tag.tag_value or "").strip()
+            if not value or value in seen:
+                continue
+            seen.add(value)
+            values.append(value)
+        if not values and content.problem:
+            values.append(content.problem)
+        return values
 
     @staticmethod
     def _items(rows: list[tuple[str, int]]) -> list[PreferenceItem]:
@@ -702,6 +937,12 @@ class AdminService:
             "percent": percent,
             "direction": direction,
         }
+
+    @staticmethod
+    def _rate(numerator: int, denominator: int) -> float:
+        if denominator <= 0:
+            return 0
+        return round(numerator / denominator, 3)
 
     @staticmethod
     def _date_range(

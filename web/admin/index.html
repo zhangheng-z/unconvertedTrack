@@ -16,7 +16,7 @@
           <a class="nav-item is-active" href="#dashboard" data-view-link="dashboard"><span>数据看板</span></a>
           <a class="nav-item" href="#users" data-view-link="users"><span>用户画像</span></a>
           <a class="nav-item" href="#contents" data-view-link="contents"><span>内容管理</span></a>
-          <a class="nav-item" href="#topics" data-view-link="ai"><span>AI选题推荐</span></a>
+          <a class="nav-item" href="#topics" data-view-link="topics"><span>AI选题推荐</span></a>
           <a class="nav-item" href="#ai" data-view-link="ai"><span>AI内容生成</span></a>
           <a class="nav-item" href="#ai-logs" data-view-link="aiLogs"><span>AI调用日志</span></a>
           <a class="nav-item" href="#review" data-view-link="review"><span>素材审核</span></a>
@@ -140,7 +140,7 @@
                 </div>
               </div>
               <div class="quick-actions">
-                <button class="primary" type="button" data-view-link="ai">生成选题</button>
+                <button class="primary" type="button" data-view-link="topics">生成选题</button>
                 <button class="blue" type="button">生成PDF</button>
                 <button class="purple-btn" type="button">生成图片</button>
                 <button class="orange-btn" type="button">生成测评</button>
@@ -188,20 +188,56 @@
           </div>
         </section>
 
+        <section class="view" id="topicsView" data-view="topics">
+          <div class="ai-grid">
+            <section class="panel topic-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>AI选题推荐</h2>
+                  <span class="hint">基于热门偏好、下载率和分享率生成</span>
+                </div>
+                <div class="topic-head-actions">
+                  <button class="secondary compact" id="openTopicSuggestionModal" type="button">新增选题</button>
+                  <button class="primary compact" id="generateTopicSuggestions" type="button">AI生成选题</button>
+                </div>
+              </div>
+              <div class="topic-data-grid">
+                <div>
+                  <h3 class="topic-subtitle">热门偏好</h3>
+                  <div class="topic-preferences" id="topicPreferences"></div>
+                </div>
+                <div>
+                  <h3 class="topic-subtitle">相关内容表现</h3>
+                  <div class="topic-content-rates" id="topicContentRates"></div>
+                </div>
+              </div>
+              <p class="form-message" id="topicGenerationMessage" role="status"></p>
+              <div class="topic-suggestions" id="topicSuggestions"></div>
+            </section>
+
+          </div>
+        </section>
+
         <section class="view" id="aiView" data-view="ai">
           <div class="ai-grid">
             <form class="panel generator-panel" id="contentForm">
               <div class="panel-head">
                 <h2>生成条件</h2>
-                <span class="hint">创建后自动发布</span>
+                <span class="hint">创建后需人工审核</span>
               </div>
 
-              <label class="field full-field">
-                <span>选题标题</span>
-                <input name="title" required value="一年级孩子识字少，每天怎么练？" />
-              </label>
+              <div class="form-row two">
+                <label class="field">
+                  <span>选题标题</span>
+                  <input name="title" required placeholder="请输入资料标题" />
+                </label>
+                <label class="field">
+                  <span>学科</span>
+                  <select name="subject" data-subject-select></select>
+                </label>
+              </div>
 
-              <div class="form-row">
+              <div class="form-row generator-meta-row">
                 <label class="field">
                   <span>年龄</span>
                   <input name="target_age_min" type="number" min="0" max="18" value="7" />
@@ -211,12 +247,12 @@
                   <select name="grade" data-grade-select></select>
                 </label>
                 <label class="field">
-                  <span>学科</span>
-                  <select name="subject" data-subject-select></select>
-                </label>
-                <label class="field">
-                  <span>问题</span>
-                  <select name="problem" data-problem-select></select>
+                  <span>问题标签</span>
+                  <div class="problem-tag-picker">
+                    <div class="problem-tag-box" id="generatorSelectedProblemTags"></div>
+                    <button class="problem-tag-add" id="openGeneratorProblemTagPicker" type="button" aria-label="选择问题标签">+</button>
+                  </div>
+                  <div id="generatorProblemTagInputs"></div>
                 </label>
               </div>
 
@@ -243,33 +279,33 @@
                   <input name="target_age_max" type="number" min="0" max="18" value="8" />
                 </label>
                 <label class="field">
+                  <span>下一步动作</span>
+                  <input name="next_action" placeholder="测评 / 训练营 / 领取方案" value="5分钟识字测评" />
+                </label>
+              </div>
+
+              <div class="form-row two">
+                <label class="field">
                   <span>解锁方式</span>
                   <select name="unlock_type">
                     <option value="free">免费领取</option>
                     <option value="invite">邀请解锁</option>
                   </select>
                 </label>
-              </div>
-
-              <div class="form-row two">
                 <label class="field">
                   <span>邀请人数</span>
                   <input name="unlock_threshold" type="number" min="0" max="100" value="0" />
-                </label>
-                <label class="field">
-                  <span>下一步动作</span>
-                  <input name="next_action" placeholder="测评 / 训练营 / 领取方案" value="5分钟识字测评" />
                 </label>
               </div>
 
               <label class="field full-field">
                 <span>简介</span>
-                <textarea name="summary" rows="3">帮助家长判断孩子识字量是否不足，并给出每天10分钟的练习方法。</textarea>
+                <textarea name="summary" rows="3" placeholder="资料的简要说明"></textarea>
               </label>
 
               <label class="field full-field">
-                <span>参考资料文字（可选）</span>
-                <textarea name="reference_text" rows="3" placeholder="可粘贴教研内容、活动要求或家长反馈"></textarea>
+                <span>生成要求</span>
+                <textarea name="reference_text" rows="3" placeholder="可补充要求生成的内容，如难度、题型、题目风格等等"></textarea>
               </label>
 
               <label class="field full-field">
@@ -289,58 +325,68 @@
               </div>
               <label class="check-line">
                 <input name="match_reference_style" type="checkbox" checked />
-                <span>参考上传PDF的结构和版式生成</span>
+                <span>结合上传资料和生成要求生成内容</span>
               </label>
 
               <button class="primary" type="submit">AI生成内容</button>
               <p class="form-message" id="formMessage" role="status"></p>
             </form>
 
-            <section class="panel result-panel">
+            <section class="panel result-panel" id="resultPanel">
               <div class="panel-head">
                 <h2>生成结果</h2>
-                <span class="status-pill">已生成</span>
+                <span class="status-pill" id="generatedStatus">待生成</span>
               </div>
-              <div class="generated-card">
-                <span class="small-label">选题标题</span>
-                <h3 id="generatedTitle">一年级孩子识字少，每天怎么练？</h3>
-                <div class="tag-row" id="generatedTags"></div>
-                <div class="content-meta" id="generatedSource" hidden></div>
-                <div class="content-meta" id="generatedTokenUsage" hidden></div>
-                <div class="generation-steps" id="generatedSteps" hidden></div>
-                <a class="generated-file-link" id="generatedPdfLink" href="#" target="_blank" rel="noreferrer" hidden>查看生成PDF</a>
-              </div>
-              <div class="result-columns">
-                <div class="outline-box">
-                  <h3>内容大纲</h3>
-                  <ol id="generatedOutline">
-                    <li>如何判断孩子识字量是否不足</li>
-                    <li>每天10分钟识字训练方法</li>
-                    <li>7天识字训练计划表</li>
-                    <li>家长陪练注意事项与常见问题</li>
-                  </ol>
+              <div class="result-empty" id="resultEmptyState">
+                <div class="result-empty-mark">AI</div>
+                <h3>等待生成内容</h3>
+                <p>填写左侧生成条件后，点击 AI生成内容。生成完成后这里会展示标题、标签、大纲、转化入口和查看内容入口。</p>
+                <div class="result-empty-grid">
+                  <span></span>
+                  <span></span>
+                  <span></span>
                 </div>
-                <div class="outline-box">
-                  <h3>绑定转化入口</h3>
-                  <div class="entry-item is-selected">
-                    <strong>5分钟识字测评</strong>
-                    <span>快速了解孩子识字水平</span>
+              </div>
+              <div id="resultGeneratedContent" hidden>
+                <div class="generated-card">
+                  <span class="small-label">选题标题</span>
+                  <h3 id="generatedTitle">一年级孩子识字少，每天怎么练？</h3>
+                  <div class="tag-row" id="generatedTags"></div>
+                  <div class="content-meta" id="generatedSource" hidden></div>
+                  <div class="content-meta" id="generatedTokenUsage" hidden></div>
+                  <div class="generation-steps" id="generatedSteps" hidden></div>
+                  <a class="generated-file-link" id="generatedPdfLink" href="#" target="_blank" rel="noreferrer" hidden>查看内容</a>
+                </div>
+                <div class="result-columns">
+                  <div class="outline-box">
+                    <h3>内容大纲</h3>
+                    <ol id="generatedOutline">
+                      <li>如何判断孩子识字量是否不足</li>
+                      <li>每天10分钟识字训练方法</li>
+                      <li>7天识字训练计划表</li>
+                      <li>家长陪练注意事项与常见问题</li>
+                    </ol>
                   </div>
-                  <div class="entry-item is-selected">
-                    <strong>7天语文训练营</strong>
-                    <span>每天10分钟，打好语文基础</span>
-                  </div>
-                  <div class="entry-item">
-                    <strong>老师1对1诊断</strong>
-                    <span>获取个性化提升建议</span>
+                  <div class="outline-box">
+                    <h3>绑定转化入口</h3>
+                    <div class="entry-item is-selected">
+                      <strong>5分钟识字测评</strong>
+                      <span>快速了解孩子识字水平</span>
+                    </div>
+                    <div class="entry-item is-selected">
+                      <strong>7天语文训练营</strong>
+                      <span>每天10分钟，打好语文基础</span>
+                    </div>
+                    <div class="entry-item">
+                      <strong>老师1对1诊断</strong>
+                      <span>获取个性化提升建议</span>
+                    </div>
                   </div>
                 </div>
               </div>
               <div class="action-row">
-                <button type="button" class="secondary">重新生成</button>
-                <button type="button" class="secondary">编辑内容</button>
-                <button type="button" class="secondary">生成封面</button>
-                <button type="submit" form="contentForm" class="blue" id="generatePdfButton">生成PDF</button>
+                <button type="submit" form="contentForm" class="secondary">重新生成</button>
+                <button type="button" class="secondary" id="viewGeneratedContent" disabled>查看内容</button>
                 <button type="button" class="primary compact" id="publishGeneratedContent" disabled>提交素材审核</button>
               </div>
             </section>
@@ -516,18 +562,22 @@
               </select>
             </label>
           </div>
-          <div class="form-row three">
+          <div class="form-row content-meta-row">
             <label class="field">
               <span>学科</span>
               <select name="subject" data-subject-select></select>
             </label>
             <label class="field">
-              <span>问题</span>
-              <select name="problem" data-problem-select></select>
-            </label>
-            <label class="field">
               <span>年级</span>
               <select name="grade" data-grade-select></select>
+            </label>
+            <label class="field">
+              <span>问题标签</span>
+              <div class="problem-tag-picker">
+                <div class="problem-tag-box" id="selectedProblemTags"></div>
+                <button class="problem-tag-add" id="openProblemTagPicker" type="button" aria-label="选择问题标签">+</button>
+              </div>
+              <div id="problemTagInputs"></div>
             </label>
           </div>
           <div class="form-row two">
@@ -561,6 +611,120 @@
             <button class="primary compact" type="submit">保存并发布</button>
           </div>
         </form>
+      </div>
+
+      <div class="modal-backdrop" id="problemTagModal" hidden>
+        <section class="modal-card problem-tag-modal-card">
+          <div class="modal-head">
+            <div>
+              <h2>选择问题标签</h2>
+              <span class="hint">可多选，保存后第一个标签作为主问题</span>
+            </div>
+            <button class="icon-button" id="closeProblemTagModal" type="button" aria-label="关闭">×</button>
+          </div>
+          <div class="problem-tag-options" id="problemTagOptions"></div>
+          <div class="modal-actions">
+            <button class="secondary" id="cancelProblemTagPicker" type="button">取消</button>
+            <button class="primary compact" id="applyProblemTagPicker" type="button">确定</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="modal-backdrop" id="topicSuggestionModal" hidden>
+        <form class="modal-card topic-suggestion-modal-card" id="topicSuggestionForm">
+          <div class="modal-head">
+            <div>
+              <h2 id="topicSuggestionModalTitle">新增选题</h2>
+              <span class="hint">学科、年级、问题标签只能从标签库中选择</span>
+            </div>
+            <button class="icon-button" id="closeTopicSuggestionModal" type="button" aria-label="关闭">×</button>
+          </div>
+          <input type="hidden" name="suggestion_id" />
+          <label class="field full-field">
+            <span>选题标题</span>
+            <input name="title" required />
+          </label>
+          <div class="form-row two">
+            <label class="field">
+              <span>学科</span>
+              <select name="subject" data-subject-select required></select>
+            </label>
+            <label class="field">
+              <span>年级</span>
+              <select name="grade" data-grade-select required></select>
+            </label>
+          </div>
+          <div class="form-row two">
+            <label class="field">
+              <span>内容类型</span>
+              <select name="content_type" required>
+                <option value="pdf">PDF资料</option>
+                <option value="image">图片卡片</option>
+                <option value="video">视频</option>
+                <option value="assessment">测评</option>
+                <option value="camp">训练营</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>优先级</span>
+              <select name="priority">
+                <option value="high">high</option>
+                <option value="medium" selected>medium</option>
+                <option value="low">low</option>
+              </select>
+            </label>
+          </div>
+          <label class="field full-field">
+            <span>问题标签</span>
+            <div class="problem-tag-picker">
+              <div class="problem-tag-box" id="topicSelectedProblemTags"></div>
+              <button class="problem-tag-add" id="openTopicProblemTagPicker" type="button" aria-label="选择问题标签">+</button>
+            </div>
+            <div id="topicProblemTagInputs"></div>
+          </label>
+          <label class="field full-field">
+            <span>目标人群</span>
+            <input name="target_audience" placeholder="小学低年级家长" />
+          </label>
+          <label class="field full-field">
+            <span>推荐理由</span>
+            <textarea name="reason" rows="3"></textarea>
+          </label>
+          <label class="field full-field">
+            <span>建议承接动作</span>
+            <input name="next_action" placeholder="测评 / 训练营 / AI内容生成" />
+          </label>
+          <p class="form-message" id="topicSuggestionFormMessage" role="status"></p>
+          <div class="modal-actions">
+            <button class="secondary" id="cancelTopicSuggestionModal" type="button">取消</button>
+            <button class="primary compact" type="submit">保存选题</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-backdrop" id="topicDeleteModal" hidden>
+        <section class="modal-card topic-delete-card">
+          <div class="modal-head">
+            <div>
+              <h2>删除选题</h2>
+              <span class="hint">删除后不会影响已生成的内容</span>
+            </div>
+            <button class="icon-button" id="closeTopicDeleteModal" type="button" aria-label="关闭">×</button>
+          </div>
+          <div class="topic-delete-body">
+            <span class="topic-delete-icon">!</span>
+            <div>
+              <p>确认删除这个 AI 推荐选题吗？</p>
+              <strong id="topicDeleteTitle"></strong>
+              <small>该操作会从 AI选题推荐列表中移除，后续可重新生成或手动新增。</small>
+            </div>
+          </div>
+          <p class="form-message" id="topicDeleteMessage" role="status"></p>
+          <div class="modal-actions">
+            <button class="secondary" id="cancelTopicDeleteModal" type="button">取消</button>
+            <button class="danger-action compact" id="confirmTopicDelete" type="button">确认删除</button>
+          </div>
+        </section>
       </div>
 
       <div class="modal-backdrop" id="taxonomyActionModal" hidden>

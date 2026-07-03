@@ -15,6 +15,7 @@ from app.schemas.admin import (
     AiModelCallLogListItem,
     AiPdfGenerateRequest,
     AiTopicSuggestionResponse,
+    AiTopicSuggestionUpsertRequest,
     AdminUserPageResponse,
     ContentAdminResponse,
     ContentCreateRequest,
@@ -26,6 +27,7 @@ from app.schemas.admin import (
     TaxonomyTagCreateRequest,
     TaxonomyTagResponse,
     TaxonomyTagUpdateRequest,
+    TopicRecommendationContext,
 )
 from app.services.admin import AdminService
 from app.tasks.generators import ImagePdfGenerationAgent, PdfGenerationInput
@@ -168,6 +170,31 @@ def generate_image_pdf_content(payload: AiImagePdfGenerateRequest):
 @router.get("/ai/topic-suggestions", response_model=list[AiTopicSuggestionResponse])
 def topic_suggestions(db: Session = Depends(get_db)):
     return AdminService(db).topic_suggestions()
+
+
+@router.post("/ai/topic-suggestions", response_model=AiTopicSuggestionResponse)
+def create_topic_suggestion(payload: AiTopicSuggestionUpsertRequest, db: Session = Depends(get_db)):
+    return AdminService(db).create_topic_suggestion(payload)
+
+
+@router.get("/ai/topic-context", response_model=TopicRecommendationContext)
+def topic_context(db: Session = Depends(get_db)):
+    return AdminService(db).topic_recommendation_context()
+
+
+@router.post("/ai/topic-suggestions/generate", response_model=list[AiTopicSuggestionResponse])
+def generate_topic_suggestions(db: Session = Depends(get_db)):
+    return AdminService(db).generate_ai_topic_suggestions()
+
+
+@router.patch("/ai/topic-suggestions/{suggestion_id}", response_model=AiTopicSuggestionResponse)
+def update_topic_suggestion(suggestion_id: int, payload: AiTopicSuggestionUpsertRequest, db: Session = Depends(get_db)):
+    return AdminService(db).update_topic_suggestion(suggestion_id, payload)
+
+
+@router.delete("/ai/topic-suggestions/{suggestion_id}", status_code=204)
+def delete_topic_suggestion(suggestion_id: int, db: Session = Depends(get_db)):
+    AdminService(db).delete_topic_suggestion(suggestion_id)
 
 
 @router.get("/ai/model-call-logs", response_model=list[AiModelCallLogListItem])

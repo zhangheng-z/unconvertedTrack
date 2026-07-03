@@ -13,7 +13,7 @@
     <text class="detail-title">{{detail.title}}</text>
     <view class="tag-row">
       <text wx:if="{{detail.subject}}" class="detail-tag blue">{{detail.subject}}</text>
-      <text wx:if="{{detail.problem}}" class="detail-tag">{{detail.problem}}</text>
+      <text wx:for="{{detail.problemTags}}" wx:key="*this" class="detail-tag">{{item}}</text>
       <text class="detail-tag warm">{{ageLabel}}</text>
       <text class="detail-tag red">{{typeLabel}}</text>
     </view>

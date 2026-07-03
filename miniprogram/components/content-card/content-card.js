@@ -21,9 +21,13 @@ Component({
         camp: '训练营'
       }
       const typeLabel = labels[item.content_type] || '资料'
+      const problemTags = Array.isArray(item.problem_tags) && item.problem_tags.length
+        ? item.problem_tags
+        : [item.problem].filter(Boolean)
       this.setData({
         typeLabel,
         display: Object.assign({}, item, {
+          problemTags,
           coverTitle: item.title || typeLabel,
           ageLabel: item.age_label || '7岁',
           claimCount: item.claim_count || 0,

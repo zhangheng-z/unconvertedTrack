@@ -107,6 +107,7 @@ def test_parent_mvp_loop_and_admin_metrics(client: TestClient):
     admin_contents = client.get("/admin/contents")
     assert admin_contents.status_code == 200
     assert admin_contents.json()[0]["claim_count"] == 1
+    assert admin_contents.json()[0]["download_count"] == 1
     assert admin_contents.json()[0]["share_count"] == 1
     assert admin_contents.json()[0]["lead_count"] == 0
 
@@ -116,6 +117,54 @@ def test_parent_mvp_loop_and_admin_metrics(client: TestClient):
     assert dashboard.json()["claimed"] == 1
     assert dashboard.json()["downloaded"] == 0
     assert dashboard.json()["shared"] == 1
+
+
+def test_content_supports_multiple_problem_tags(client: TestClient):
+    response = client.post(
+        "/admin/contents",
+        json={
+            "title": "一年级语文综合练习",
+            "content_type": "pdf",
+            "subject": "语文",
+            "problem": "识字少",
+            "problem_tags": ["识字少", "阅读理解差"],
+            "target_age_min": 6,
+            "target_age_max": 8,
+            "grade": "一年级",
+            "summary": "多问题标签资料",
+            "file_path": "materials/multi-problem.pdf",
+            "unlock_type": "free",
+            "unlock_threshold": 0,
+            "tags": ["语文"],
+        },
+    )
+    assert response.status_code == 200
+    content = response.json()
+    assert content["problem"] == "识字少"
+    assert content["problem_tags"] == ["识字少", "阅读理解差"]
+
+    content_id = content["id"]
+    publish = client.patch(f"/admin/contents/{content_id}/publish", json={"is_published": True})
+    assert publish.status_code == 200
+
+    contents = client.get("/api/v1/contents", params={"problem": "阅读理解差"})
+    assert contents.status_code == 200
+    assert [item["id"] for item in contents.json()] == [content_id]
+    assert contents.json()[0]["problem_tags"] == ["识字少", "阅读理解差"]
+
+    update_response = client.patch(
+        f"/admin/contents/{content_id}",
+        json={
+            "problem_tags": ["拼音不熟", "写字慢"],
+        },
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["problem"] == "拼音不熟"
+    assert update_response.json()["problem_tags"] == ["拼音不熟", "写字慢"]
+
+    updated_contents = client.get("/api/v1/contents", params={"problem": "写字慢"})
+    assert updated_contents.status_code == 200
+    assert [item["id"] for item in updated_contents.json()] == [content_id]
 
 
 def test_admin_metrics_respect_date_range(client: TestClient, db_session):
@@ -232,6 +281,171 @@ def test_ai_topic_suggestion_uses_recent_preferences(client: TestClient):
     assert suggestions
     assert "语文" in suggestions[0]["title"]
     assert suggestions[0]["status"] == "draft"
+
+
+def test_topic_context_includes_content_download_and_share_rates(client: TestClient):
+    content_id = create_and_publish_content(client)
+    client.post(
+        "/api/v1/onboarding/profile",
+        json={
+            "open_id": "parent-topic-rates",
+            "child_age": 7,
+            "child_grade": "一年级",
+            "concerns": ["识字阅读"],
+        },
+    )
+    client.post(f"/api/v1/contents/{content_id}/claim", params={"open_id": "parent-topic-rates"})
+    client.post(f"/api/v1/contents/{content_id}/download", params={"open_id": "parent-topic-rates"})
+    client.post(f"/api/v1/contents/{content_id}/share", params={"open_id": "parent-topic-rates"})
+
+    response = client.get("/admin/ai/topic-context")
+    assert response.status_code == 200
+    related = response.json()["related_contents"]
+    row = next(item for item in related if item["content_id"] == content_id)
+    assert row["claim_count"] == 1
+    assert row["download_count"] == 1
+    assert row["share_count"] == 1
+    assert row["download_rate"] == 1
+    assert row["share_rate"] == 1
+    assert "语文" in response.json()["allowed_options"]["subjects"]
+    assert "一年级" in response.json()["allowed_options"]["grades"]
+    assert "识字少" in response.json()["allowed_options"]["problem_tags"]
+
+
+def test_generate_ai_topic_suggestions_uses_llm_context(client: TestClient, monkeypatch):
+    class FakeTopicResult:
+        model = "test-topic-model"
+        suggestions = [
+            {
+                "title": "一年级识字少7天提升清单",
+                "target_audience": "一年级识字少家长",
+                "content_type": "pdf",
+                "subject": "语文",
+                "grade": "一年级",
+                "problem_tags": ["识字少"],
+                "priority": "high",
+                "reason": "问题偏好中识字少行为最多，适合优先生产。",
+                "next_action": "5分钟识字测评",
+            }
+        ]
+
+    class FakeGenerator:
+        def set_trace_context(self, request_id=None, task_type="unknown"):
+            self.task_type = task_type
+
+        def generate_topic_suggestions(self, context):
+            assert "preferences" in context
+            assert "related_contents" in context
+            assert context["allowed_options"]["subjects"]
+            assert context["allowed_options"]["grades"]
+            assert context["allowed_options"]["problem_tags"]
+            return FakeTopicResult()
+
+    monkeypatch.setattr("app.services.admin.LlmContentGenerator", FakeGenerator)
+
+    response = client.post("/admin/ai/topic-suggestions/generate")
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["title"] == "一年级识字少7天提升清单"
+    assert body[0]["source_metrics"]["generation_source"] == "llm"
+    assert body[0]["source_metrics"]["problem_tags"] == ["识字少"]
+
+
+def test_ai_topic_generation_skips_values_outside_taxonomy(client: TestClient, monkeypatch):
+    class FakeTopicResult:
+        model = "test-topic-model"
+        suggestions = [
+            {
+                "title": "一年级识字少7天提升清单",
+                "target_audience": "一年级识字少家长",
+                "content_type": "pdf",
+                "subject": "语文",
+                "grade": "一年级",
+                "problem_tags": ["识字少"],
+                "priority": "high",
+                "reason": "识字少是高频问题。",
+                "next_action": "5分钟识字测评",
+            },
+            {
+                "title": "模型编造标签选题",
+                "target_audience": "家长",
+                "content_type": "pdf",
+                "subject": "天文学",
+                "grade": "火星班",
+                "problem_tags": ["不存在的问题"],
+                "priority": "low",
+                "reason": "无效。",
+                "next_action": "",
+            },
+        ]
+
+    class FakeGenerator:
+        def set_trace_context(self, request_id=None, task_type="unknown"):
+            pass
+
+        def generate_topic_suggestions(self, context):
+            return FakeTopicResult()
+
+    monkeypatch.setattr("app.services.admin.LlmContentGenerator", FakeGenerator)
+
+    response = client.post("/admin/ai/topic-suggestions/generate")
+    assert response.status_code == 200
+    titles = [item["title"] for item in response.json()]
+    assert "一年级识字少7天提升清单" in titles
+    assert "模型编造标签选题" not in titles
+
+
+def test_admin_topic_suggestion_crud_validates_taxonomy(client: TestClient):
+    invalid = client.post(
+        "/admin/ai/topic-suggestions",
+        json={
+            "title": "无效标签选题",
+            "content_type": "pdf",
+            "subject": "天文学",
+            "grade": "一年级",
+            "problem_tags": ["识字少"],
+        },
+    )
+    assert invalid.status_code == 400
+
+    created = client.post(
+        "/admin/ai/topic-suggestions",
+        json={
+            "title": "一年级识字少训练清单",
+            "target_audience": "一年级家长",
+            "content_type": "pdf",
+            "subject": "语文",
+            "grade": "一年级",
+            "problem_tags": ["识字少"],
+            "priority": "high",
+            "reason": "识字少是近期高频问题。",
+            "next_action": "AI内容生成",
+        },
+    )
+    assert created.status_code == 200
+    suggestion_id = created.json()["id"]
+    assert created.json()["source_metrics"]["subject"] == "语文"
+
+    updated = client.patch(
+        f"/admin/ai/topic-suggestions/{suggestion_id}",
+        json={
+            "title": "一年级识字少每日练习",
+            "target_audience": "一年级家长",
+            "content_type": "pdf",
+            "subject": "语文",
+            "grade": "一年级",
+            "problem_tags": ["拼音不熟"],
+            "priority": "medium",
+            "reason": "调整为拼音方向。",
+            "next_action": "AI内容生成",
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["title"] == "一年级识字少每日练习"
+    assert updated.json()["source_metrics"]["problem_tags"] == ["拼音不熟"]
+
+    deleted = client.delete(f"/admin/ai/topic-suggestions/{suggestion_id}")
+    assert deleted.status_code == 204
 
 
 def test_claim_is_idempotent(client: TestClient):

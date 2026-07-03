@@ -24,6 +24,7 @@ class ContentListItem(OrmModel):
     content_type: str
     subject: str | None
     problem: str | None
+    problem_tags: list[str] = Field(default_factory=list)
     cover_url: str | None
     summary: str | None
     next_action: str | None

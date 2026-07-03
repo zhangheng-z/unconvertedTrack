@@ -30,7 +30,7 @@ class Content(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
 
-    tags: Mapped[list["ContentTag"]] = relationship(back_populates="content", cascade="all, delete-orphan")
+    tags: Mapped[list["ContentTag"]] = relationship(back_populates="content", cascade="all, delete-orphan", order_by="ContentTag.id")
 
 
 class ContentTag(Base):

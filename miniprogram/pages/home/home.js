@@ -49,7 +49,8 @@ Page({
     listContents(params)
       .then((contents) => {
         const keyword = this.data.keyword.trim()
-        const filtered = keyword ? contents.filter((item) => item.title.indexOf(keyword) >= 0) : contents
+        const concernFiltered = this.filterByConcerns(contents, profile.concerns || [])
+        const filtered = keyword ? concernFiltered.filter((item) => item.title.indexOf(keyword) >= 0) : concernFiltered
         this.setData({
           contents: filtered.map((item) => Object.assign({}, item, {
             age_label: profile.ageLabel || `${profile.age}岁`
@@ -62,6 +63,17 @@ Page({
       .finally(() => {
         this.setData({ loading: false })
       })
+  },
+
+  filterByConcerns(contents, concerns) {
+    const selectedConcerns = (concerns || []).filter(Boolean)
+    if (!selectedConcerns.length) return contents
+    return contents.filter((item) => {
+      const problemTags = Array.isArray(item.problem_tags) && item.problem_tags.length
+        ? item.problem_tags
+        : [item.problem].filter(Boolean)
+      return problemTags.some((tag) => selectedConcerns.indexOf(tag) >= 0)
+    })
   },
 
   handleCardAction(event) {

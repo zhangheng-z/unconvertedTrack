@@ -10,7 +10,7 @@
     <text class="title">{{display.title}}</text>
     <view class="tag-row">
       <text wx:if="{{display.subject}}" class="tag blue">{{display.subject}}</text>
-      <text wx:if="{{display.problem}}" class="tag">{{display.problem}}</text>
+      <text wx:for="{{display.problemTags}}" wx:key="*this" class="tag">{{item}}</text>
       <text class="tag warm">{{display.ageLabel}}</text>
       <text class="tag red">{{typeLabel}}</text>
     </view>

@@ -9,6 +9,7 @@ class ContentCreateRequest(BaseModel):
     content_type: str = Field(min_length=1, max_length=40)
     subject: str | None = Field(default=None, max_length=40)
     problem: str | None = Field(default=None, max_length=80)
+    problem_tags: list[str] = Field(default_factory=list)
     target_age_min: int | None = Field(default=None, ge=0, le=18)
     target_age_max: int | None = Field(default=None, ge=0, le=18)
     grade: str | None = Field(default=None, max_length=40)
@@ -27,6 +28,7 @@ class ContentUpdateRequest(BaseModel):
     content_type: str | None = Field(default=None, min_length=1, max_length=40)
     subject: str | None = Field(default=None, max_length=40)
     problem: str | None = Field(default=None, max_length=80)
+    problem_tags: list[str] | None = None
     target_age_min: int | None = Field(default=None, ge=0, le=18)
     target_age_max: int | None = Field(default=None, ge=0, le=18)
     grade: str | None = Field(default=None, max_length=40)
@@ -148,6 +150,7 @@ class ContentAdminResponse(OrmModel):
     content_type: str
     subject: str | None
     problem: str | None
+    problem_tags: list[str] = Field(default_factory=list)
     target_age_min: int | None
     target_age_max: int | None
     grade: str | None
@@ -160,6 +163,7 @@ class ContentAdminResponse(OrmModel):
     unlock_threshold: int
     is_published: bool
     claim_count: int = 0
+    download_count: int = 0
     share_count: int = 0
     lead_count: int = 0
 
@@ -191,6 +195,45 @@ class PreferenceOverview(BaseModel):
     subjects: list[PreferenceItem]
     problems: list[PreferenceItem]
     content_types: list[PreferenceItem]
+
+
+class TopicRelatedContent(BaseModel):
+    content_id: int
+    title: str
+    subject: str | None = None
+    grade: str | None = None
+    content_type: str
+    problem_tags: list[str] = Field(default_factory=list)
+    claim_count: int = 0
+    download_count: int = 0
+    share_count: int = 0
+    download_rate: float = 0
+    share_rate: float = 0
+
+
+class AllowedTopicOptions(BaseModel):
+    subjects: list[str] = Field(default_factory=list)
+    grades: list[str] = Field(default_factory=list)
+    problem_tags: list[str] = Field(default_factory=list)
+    content_types: list[str] = Field(default_factory=lambda: ["pdf", "image", "video", "assessment", "camp"])
+
+
+class TopicRecommendationContext(BaseModel):
+    preferences: PreferenceOverview
+    related_contents: list[TopicRelatedContent] = Field(default_factory=list)
+    allowed_options: AllowedTopicOptions
+
+
+class AiTopicSuggestionUpsertRequest(BaseModel):
+    title: str
+    target_audience: str | None = None
+    content_type: str = "pdf"
+    subject: str
+    grade: str
+    problem_tags: list[str] = Field(default_factory=list)
+    priority: str = "medium"
+    reason: str | None = None
+    next_action: str | None = None
 
 
 class AdminUserProfileResponse(BaseModel):

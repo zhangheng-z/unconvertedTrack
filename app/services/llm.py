@@ -52,6 +52,13 @@ class LlmMaterialPlanResult:
     usage: object
 
 
+@dataclass
+class LlmTopicSuggestionResult:
+    suggestions: list[dict]
+    model: str
+    usage: object
+
+
 class LlmContentGenerator:
     def __init__(self):
         self.settings = get_settings()
@@ -208,6 +215,28 @@ class LlmContentGenerator:
         usage = self._usage(response.get("usage"))
         return LlmMaterialPlanResult(
             plan=self._parse_material_plan(response["choices"][0]["message"]["content"], payload, page_count),
+            model=self.settings.ai_text_model,
+            usage=usage,
+        )
+
+    def generate_topic_suggestions(self, context: dict) -> LlmTopicSuggestionResult | None:
+        if not self.settings.vectorengine_api_key:
+            logger.info("llm_topic_suggestions skipped reason=no_vectorengine_api_key model=%s", self.settings.ai_text_model)
+            return None
+
+        body = {
+            "model": self.settings.ai_text_model,
+            "messages": [
+                {"role": "system", "content": self._topic_suggestion_system_prompt()},
+                {"role": "user", "content": self._topic_suggestion_user_prompt(context)},
+            ],
+            "temperature": 0.35,
+            "response_format": {"type": "json_object"},
+        }
+        response = self._post_json("/chat/completions", body, step_name="llm_topic_suggestions")
+        usage = self._usage(response.get("usage"))
+        return LlmTopicSuggestionResult(
+            suggestions=self._parse_topic_suggestions(response["choices"][0]["message"]["content"]),
             model=self.settings.ai_text_model,
             usage=usage,
         )
@@ -716,6 +745,48 @@ class LlmContentGenerator:
 """.strip()
 
     @staticmethod
+    def _topic_suggestion_system_prompt() -> str:
+        return (
+            "你是小学教育内容运营选题专家。你只输出合法 JSON，不要 Markdown。"
+            "你需要根据用户热门偏好、相关内容下载率和分享率，给出可执行的内容选题。"
+            "subject、grade、problem_tags、content_type 必须且只能从 allowed_options 中选择。"
+            "不要编造不存在的数据；理由必须引用输入数据中的趋势、偏好或内容表现。"
+        )
+
+    @staticmethod
+    def _topic_suggestion_user_prompt(context: dict) -> str:
+        return f"""
+请根据下面的运营数据生成 4 个推荐选题。
+
+数据说明：
+- preferences 是近期热门偏好，count 是行为次数。
+- related_contents 是相关内容表现，download_rate = 下载数 / 领取数，share_rate = 分享数 / 领取数。
+- allowed_options 是选题可用范围，subject、grade、problem_tags、content_type 必须从中选择。
+- 选题要优先覆盖高频问题标签，并参考高分享率/高下载率内容的形态。
+- 如果没有完全匹配的标签，选择 allowed_options 中最接近的已有标签，不要创造新标签。
+
+运营数据 JSON：
+{json.dumps(context, ensure_ascii=False)[:12000]}
+
+必须输出 JSON：
+{{
+  "suggestions": [
+    {{
+      "title": "选题标题，30字以内",
+      "target_audience": "目标家长/孩子",
+      "content_type": "pdf | image | video | assessment | camp",
+      "subject": "学科",
+      "grade": "年级或年龄段",
+      "problem_tags": ["问题标签1", "问题标签2"],
+      "priority": "high | medium | low",
+      "reason": "推荐理由，必须包含数据依据",
+      "next_action": "建议承接动作"
+    }}
+  ]
+}}
+""".strip()
+
+    @staticmethod
     def _parse_pdf_content(content: str, payload):
         from app.tasks.generators.types import PdfContentDraft
 
@@ -791,6 +862,40 @@ class LlmContentGenerator:
             outline=LlmContentGenerator._list(data.get("outline")),
             global_style=str(data.get("global_style") or ""),
         )
+
+    @staticmethod
+    def _parse_topic_suggestions(content: str) -> list[dict]:
+        text = content.strip()
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.startswith("json"):
+                text = text[4:].strip()
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise LlmGenerationError("LLM returned invalid topic suggestion JSON") from exc
+        suggestions = data.get("suggestions")
+        if not isinstance(suggestions, list):
+            raise LlmGenerationError("LLM topic suggestions missing suggestions array")
+        cleaned = []
+        for item in suggestions:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title") or "").strip()
+            if not title:
+                continue
+            cleaned.append({
+                "title": title[:160],
+                "target_audience": str(item.get("target_audience") or "").strip()[:160],
+                "content_type": str(item.get("content_type") or "pdf").strip()[:40],
+                "subject": str(item.get("subject") or "").strip(),
+                "grade": str(item.get("grade") or "").strip(),
+                "problem_tags": LlmContentGenerator._list(item.get("problem_tags")),
+                "priority": str(item.get("priority") or "medium").strip(),
+                "reason": str(item.get("reason") or "").strip(),
+                "next_action": str(item.get("next_action") or "").strip(),
+            })
+        return cleaned
 
     @staticmethod
     def _parse_reference_analysis(content: str):
